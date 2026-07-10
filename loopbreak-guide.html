@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<title>Breaking the Loop — a guide for post-ABI rumination</title>
+<meta name="description" content="A plain-language guide to post-ABI rumination, Brian's own strategies for breaking the loop, and LoopBreak — a calm self-help companion app.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+  :root{
+    --bg: #142235;
+    --bg-raised: #1B2E45;
+    --bg-raised-2: #223751;
+    --teal: #6FBFB5;
+    --teal-dim: #4E8B84;
+    --teal-soft-bg: #1C3A3A;
+    --text: #F3F6F8;
+    --text-dim: #CBD9E3;
+    --text-faint: #9FB2C2;
+    --border: #2C4159;
+    --focus: #A9D8D0;
+    --radius: 18px;
+    --max-w: 46rem;
+    --space-1: 0.5rem;
+    --space-2: 1rem;
+    --space-3: 1.75rem;
+    --space-4: 2.75rem;
+    --space-5: 4.5rem;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html{
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    html{ scroll-behavior: auto; }
+    *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+
+  body{
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 19px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a{ color: var(--teal); }
+  a:focus-visible, button:focus-visible{
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  img{ max-width: 100%; }
+
+  .wrap{
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 0 var(--space-2);
+  }
+
+  /* ---------- Nav ---------- */
+
+  nav.topnav{
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(20, 34, 53, 0.94);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .topnav-inner{
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: var(--space-2);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand{
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--text);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .brand-mark{
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    border: 2px solid var(--teal);
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .nav-links{
+    display: flex;
+    gap: var(--space-3);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex-wrap: wrap;
+  }
+
+  .nav-links a{
+    color: var(--text-dim);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.98rem;
+    padding: 0.35rem 0.1rem;
+    border-bottom: 2px solid transparent;
+  }
+  .nav-links a:hover, .nav-links a:focus-visible{
+    color: var(--text);
+    border-bottom-color: var(--teal);
+  }
+
+  /* ---------- Hero ---------- */
+
+  header.hero{
+    position: relative;
+    padding: var(--space-5) 0 var(--space-4);
+    overflow: hidden;
+  }
+
+  .breath-ring{
+    position: absolute;
+    top: -6rem;
+    right: -6rem;
+    width: 22rem;
+    height: 22rem;
+    border-radius: 50%;
+    border: 1px solid var(--teal-dim);
+    opacity: 0.35;
+    animation: breathe 9s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .breath-ring.two{
+    top: -3rem;
+    right: -3rem;
+    width: 15rem;
+    height: 15rem;
+    animation-delay: 1.5s;
+    opacity: 0.25;
+  }
+  @keyframes breathe{
+    0%, 100% { transform: scale(1); opacity: 0.30; }
+    50% { transform: scale(1.06); opacity: 0.5; }
+  }
+
+  .eyebrow{
+    display: inline-block;
+    color: var(--teal);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    font-size: 0.95rem;
+    margin-bottom: var(--space-2);
+  }
+
+  h1{
+    font-size: clamp(2rem, 5vw, 2.7rem);
+    line-height: 1.25;
+    margin: 0 0 var(--space-3);
+    max-width: 18ch;
+  }
+
+  .hero-lede{
+    font-size: 1.15rem;
+    color: var(--text-dim);
+    max-width: 42ch;
+    margin: 0 0 var(--space-3);
+  }
+
+  .hero-ctas{
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .btn{
+    display: inline-block;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.05rem;
+    padding: 0.9rem 1.5rem;
+    border-radius: 999px;
+    border: 2px solid transparent;
+  }
+  .btn-primary{
+    background: var(--teal);
+    color: #0E1D25;
+  }
+  .btn-primary:hover, .btn-primary:focus-visible{ background: var(--focus); }
+  .btn-secondary{
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-secondary:hover, .btn-secondary:focus-visible{ border-color: var(--teal); color: var(--teal); }
+
+  /* ---------- Sections ---------- */
+
+  section{
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .section-label{
+    color: var(--teal);
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    margin: 0 0 var(--space-1);
+  }
+
+  h2{
+    font-size: clamp(1.5rem, 3.4vw, 1.9rem);
+    line-height: 1.3;
+    margin: 0 0 var(--space-3);
+    max-width: 24ch;
+  }
+
+  h3{
+    font-size: 1.2rem;
+    line-height: 1.4;
+    margin: 0 0 var(--space-1);
+  }
+
+  p{ margin: 0 0 var(--space-2); }
+  p:last-child{ margin-bottom: 0; }
+
+  .lede{
+    color: var(--text-dim);
+    font-size: 1.05rem;
+  }
+
+  /* One-idea cards */
+  .card{
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-3);
+    margin-bottom: var(--space-2);
+  }
+  .card:last-child{ margin-bottom: 0; }
+
+  .card-stack{
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+
+  .card h3{ color: var(--text); }
+  .card .tag{
+    display: inline-block;
+    background: var(--teal-soft-bg);
+    color: var(--teal);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    margin-bottom: var(--space-1);
+  }
+
+  blockquote{
+    margin: var(--space-3) 0;
+    padding: var(--space-2) var(--space-3);
+    border-left: 4px solid var(--teal);
+    background: var(--bg-raised);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 1.15rem;
+    color: var(--text);
+    font-style: italic;
+  }
+  blockquote cite{
+    display: block;
+    margin-top: var(--space-1);
+    font-style: normal;
+    font-size: 0.9rem;
+    color: var(--text-faint);
+  }
+
+  /* ---------- App section ---------- */
+
+  .app-panel{
+    background: linear-gradient(165deg, var(--bg-raised-2), var(--bg-raised));
+    border: 1px solid var(--teal-dim);
+    border-radius: var(--radius);
+    padding: var(--space-3);
+  }
+
+  .app-link-row{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-2) 0 var(--space-3);
+  }
+
+  .module-list{
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .module{
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-3);
+  }
+
+  .module-num{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--teal-soft-bg);
+    color: var(--teal);
+    font-weight: 700;
+    margin-bottom: var(--space-1);
+  }
+
+  .module h3{ margin-top: 0.3rem; }
+  .module ol, .module ul{
+    margin: var(--space-1) 0 0;
+    padding-left: 1.3rem;
+  }
+  .module li{ margin-bottom: 0.4rem; }
+  .module li:last-child{ margin-bottom: 0; }
+
+  /* ---------- Support / safety ---------- */
+
+  .note-panel{
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--teal);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: var(--space-3);
+    margin-bottom: var(--space-2);
+  }
+  .note-panel:last-child{ margin-bottom: 0; }
+
+  .resource-list{
+    list-style: none;
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .resource-list li{
+    padding: var(--space-2);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .resource-list strong{ color: var(--text); }
+  .resource-list span{ display: block; color: var(--text-dim); font-size: 0.97rem; margin-top: 0.2rem; }
+
+  /* ---------- Footer ---------- */
+
+  footer{
+    padding: var(--space-4) 0 var(--space-5);
+    color: var(--text-faint);
+    font-size: 0.95rem;
+  }
+  footer a{ color: var(--text-dim); }
+
+  /* Skip link */
+  .skip-link{
+    position: absolute;
+    left: -999px;
+    top: 0;
+    background: var(--teal);
+    color: #0E1D25;
+    padding: 0.7rem 1.2rem;
+    border-radius: 0 0 10px 0;
+    font-weight: 700;
+    z-index: 100;
+  }
+  .skip-link:focus{ left: 0; }
+
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<nav class="topnav" aria-label="Main">
+  <div class="topnav-inner">
+    <a class="brand" href="#top">
+      <span class="brand-mark" aria-hidden="true"></span>
+      Breaking the Loop
+    </a>
+    <ul class="nav-links">
+      <li><a href="#the-loop">The loop</a></li>
+      <li><a href="#strategies">What helps</a></li>
+      <li><a href="#app">The app</a></li>
+      <li><a href="#support">Support</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="main">
+
+  <header class="hero" id="top">
+    <div class="breath-ring" aria-hidden="true"></div>
+    <div class="breath-ring two" aria-hidden="true"></div>
+    <div class="wrap">
+      <span class="eyebrow">Written for ABI survivors, by one of us</span>
+      <h1>That old dog-eared loop doesn't get the final word.</h1>
+      <p class="hero-lede">
+        After a brain injury, the mind can get stuck. The same worry, over and over, going nowhere.
+        It isn't weakness, and it isn't permanent. This page sets out what that loop is,
+        why an injured brain does it, what has actually helped, and a free app built to walk you through it.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#app">Try LoopBreak</a>
+        <a class="btn btn-secondary" href="#the-loop">Read the guide</a>
+      </div>
+    </div>
+  </header>
+
+  <section id="the-loop">
+    <div class="wrap">
+      <p class="section-label">Understanding it</p>
+      <h2>What rumination after ABI actually is</h2>
+      <p class="lede">Not ordinary worry. Something stickier.</p>
+
+      <p>
+        Everyone worries sometimes. This is different. This is the same thought, or the same handful
+        of thoughts, playing on repeat — often for hours, often about something you can do nothing
+        about right now, often starting up again the moment you notice it's stopped. You can be halfway
+        through a completely different task and find it's crept back in, quietly, without you inviting it.
+      </p>
+      <p>
+        It doesn't solve anything. That's the strange, exhausting part. Ordinary thinking works towards
+        an answer. This loop doesn't. It just goes round. And because it doesn't resolve, it doesn't
+        stop on its own — it needs something from outside itself to break the circuit.
+      </p>
+      <p>
+        If you've had this since your injury, it is not a character flaw, and it is not a sign you're
+        losing your grip. It's an extremely common part of what an injured brain does while it's healing.
+        Knowing that alone won't switch it off. But it's worth sitting with for a moment, because most
+        people carrying this loop are also quietly carrying shame about having it — and that shame is
+        not yours to carry.
+      </p>
+
+      <p class="section-label" style="margin-top: var(--space-4);">Why it happens</p>
+      <h2>Why the injured brain does this</h2>
+      <p>
+        Two systems tend to take the hit after a brain injury, and this loop lives in the gap between them.
+      </p>
+      <p>
+        The first is <strong>attention</strong> — your brain's ability to notice, moment to moment,
+        what it's actually doing. In a well-rested, uninjured brain, this runs quietly in the background,
+        catching you when you've drifted and gently pulling you back. After an injury, that noticing
+        system can become sluggish. The mind wanders into the loop and the alarm that would normally
+        flag it — <em>you're doing this again</em> — doesn't fire the way it used to. You can be forty
+        minutes into a loop before you realise you're in one.
+      </p>
+      <p>
+        The second is <strong>regulation</strong> — the system that's supposed to switch off a stress
+        response once the danger has passed. A worry lands, your body reacts as though there's a real
+        and immediate threat, and normally that reaction fades once your thinking brain confirms there's
+        nothing to actually do right now. After an injury, that "stand down" signal can get weaker. The
+        alarm stays live. The brain keeps returning to the worry because, as far as your nervous system
+        is concerned, it never got the all-clear.
+      </p>
+      <p>
+        Neither of these is permanent. This matters enough to say plainly: <strong>the brain is not
+        fixed.</strong> It keeps rewiring itself in response to what you actually, repeatedly ask it to
+        do — for better or worse. That's not a slogan, it's how the organ works. The same mechanism that
+        can wear a loop into a groove is the mechanism that can wear a new path instead. It takes
+        repetition, not willpower, and it takes longer than anyone wants it to. But the direction of
+        travel is real.
+      </p>
+    </div>
+  </section>
+
+  <section id="strategies">
+    <div class="wrap">
+      <p class="section-label">What helps</p>
+      <h2>Brian's approach to breaking the loop</h2>
+      <p class="lede">
+        Nothing here is clever. It's a small number of specific, repeatable moves — used again and
+        again, because repetition is what actually rewires anything.
+      </p>
+
+      <div class="card-stack">
+
+        <div class="card">
+          <span class="tag">1. Notice it</span>
+          <h3>Catch that you're driving the bus, not the other way round</h3>
+          <p>
+            The first move isn't to fight the loop. It's simply to notice you're in one. A quiet check-in
+            — <em>what's my mind actually doing right now</em> — done a few times a day, is enough to
+            start catching the loop earlier and earlier each time. You're not trying to answer anything
+            deep. You're just looking.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="tag">2. Name it</span>
+          <h3>Call it neurological static, and remember thought is not fact</h3>
+          <p>
+            Give it a name that separates it from you. This isn't a true crisis playing out in real time —
+            it's neurological static, a glitch in a system that's still healing. And the thought itself,
+            however loud, is not automatically a fact. Noticing the difference between "I'm having this
+            thought" and "this thought is true" takes some of the weight out of it.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="tag">3. Give it an appointment</span>
+          <h3>The worry doesn't have to be dealt with right now</h3>
+          <p>
+            Instead of trying to force the thought away — which rarely works and often makes it louder —
+            give it a specific later time. <em>I'll think about this properly at 6pm.</em> The mind, oddly,
+            will often accept this deal. The worry isn't being denied. It's being scheduled.
+          </p>
+          <p>
+            And sometimes now genuinely is the right time — the deal isn't always "later," it's a real
+            appointment, kept. That means actually sitting with it when it comes due: what's true, what
+            was your mind making worse than it is, what (if anything) actually needs doing. Give it a
+            short, honest window, then close it and move on. And if, when the moment comes, the worry's
+            simply lost its grip and there's nothing left to say — that counts too. Letting it go quietly
+            is keeping the deal just as much as working through it is.
+          </p>
+          <p>
+            If you don't know where to start, borrow a sentence: <em>What's true is…</em>
+            <em>The story my brain added is…</em> <em>One thing I can actually do about it is…</em>
+            <em>If a friend brought me this worry, I'd tell them…</em> Any one of those is usually enough
+            to get the appointment moving, and every appointment ends one of two honest ways — with an
+            action, or with "that's just static."
+          </p>
+          <p>
+            You can also choose one person once — a friend, a family member, a therapist — and send them
+            the worry and how it resolved, straight through your phone's own messaging or email. Nothing
+            else leaves your device. If there's no one you'd want to send it to, that's alright too —
+            Headway's helpline is there for exactly this, free and confidential, 0808 800 2244,
+            Monday to Friday, 9 to 5.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="tag">4. Get it out of your head</span>
+          <h3>Write it down, and let the page hold it for a while</h3>
+          <p>
+            A loop that's only inside your head has nowhere to go but round again. Writing it down — even
+            badly, even just a scrawl — moves it from the inside of your skull to somewhere outside it.
+            It doesn't have to be solved on the page. It just has to be out of your head.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="tag">5. Move your body</span>
+          <h3>A short walk does more than it looks like it does</h3>
+          <p>
+            Rhythmic movement — even ten minutes, even slow — is one of the few things that reliably
+            interrupts a loop from the outside in. You don't need a route, a pace, or a destination.
+            You need your feet moving and your eyes on something other than the inside of your own head.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="tag">6. Protect your sleep</span>
+          <h3>The loop bites hardest on a flat battery</h3>
+          <p>
+            Everything above gets harder when you're running on empty. A loop that's manageable on a
+            rested day can feel unbeatable on a poorly-slept one. Protecting a regular bedtime and
+            getting outside in the morning light isn't a side project — it's part of the same work.
+          </p>
+        </div>
+
+      </div>
+
+      <blockquote>
+        None of these six moves is complicated on its own. What makes them work is doing the small
+        one, over and over, rather than waiting for the big insight that fixes everything at once.
+        <cite>— the approach behind LoopBreak</cite>
+      </blockquote>
+    </div>
+  </section>
+
+  <section id="app">
+    <div class="wrap">
+      <p class="section-label">The tool</p>
+      <h2>LoopBreak — a calm companion for the loop</h2>
+      <div class="app-panel">
+        <p>
+          LoopBreak is a free, single-page web app built from the strategies above. It's peer-designed
+          self-help — built by an ABI survivor, for people living with the same loop — not a medical
+          device and not a replacement for therapy. It's deliberately plain: flat navigation, large
+          buttons, no streaks, no scores, no memory tests. Nothing to fail at.
+        </p>
+        <div class="app-link-row">
+          <a class="btn btn-primary" href="./" rel="noopener">Open LoopBreak</a>
+          <span class="lede" style="margin:0;">loopbreak.help</span>
+        </div>
+
+        <ol class="module-list" style="list-style:none; padding:0;">
+          <li class="module">
+            <span class="module-num" aria-hidden="true">1</span>
+            <h3>Get it out of my head — Brain Dump</h3>
+            <p>Write the looping thought down, just as it is. Once you save it, it locks away in the
+              Worry Box until its appointment comes due — you can't read it back and feed it in the
+              meantime. When it unlocks, that's the appointment: a single screen showing what you locked
+              away, space to write what's actually true, what your mind made worse than it was, and what
+              (if anything) needs doing — with sentence-starters if you need a way in ("What's true is…",
+              "The story my brain added is…", "One thing I can actually do about it is…"). A gentle
+              ten-minute window, then "That's dealt with — move on," which flows straight into a small
+              physical task. Kept appointments are saved under "Dealt with." And if there's nothing left
+              to say when it unlocks — the loop's simply lost its grip — letting it go counts as keeping
+              the deal too. You can also choose one person once, and send them the worry and how it
+              resolved through your own phone's apps — nothing else leaves the device.</p>
+          </li>
+          <li class="module">
+            <span class="module-num" aria-hidden="true">2</span>
+            <h3>Break the loop — Circuit Breaker</h3>
+            <p>A guided, one-step-at-a-time walkthrough of Brian's own four-step routine: name the glitch
+              as neurological static, remind yourself thought is not fact, then give the worry an
+              appointment — later, via the Worry Box, or right now with "Deal with it right now," for
+              when now genuinely is the moment. Either way it ends the same: a pivot to a small physical
+              task in the real world.</p>
+          </li>
+          <li class="module">
+            <span class="module-num" aria-hidden="true">3</span>
+            <h3>Ground me</h3>
+            <p>Visual box breathing (in for 4, hold for 4, out for 4, hold for 4) and a 5-4-3-2-1 sensory
+              reset, taken one simple screen at a time. No timers to beat. No wrong way to do it.</p>
+          </li>
+          <li class="module">
+            <span class="module-num" aria-hidden="true">4</span>
+            <h3>Energy check</h3>
+            <p>A two-tap check-in: Low, Charging, or Full. If you tap Low, the app suggests a 15-minute
+              rest — because the loop bites hardest on a flat battery, and rest is a legitimate answer,
+              not a failure.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="who-else">
+    <div class="wrap">
+      <p class="section-label">Not only an ABI thing</p>
+      <h2>If this sounds familiar, but you didn't have a brain injury</h2>
+      <p>
+        LoopBreak was built for and with an ABI survivor, and his voice runs through it. But the loop
+        it describes — the same thought, going nowhere, refusing to switch off — isn't exclusive to
+        acquired brain injury. People recovering from stroke, living with PTSD, or carrying the weight
+        of a chronic illness or a hard stretch of life often describe exactly the same pattern.
+      </p>
+      <p>
+        We're not going to claim expertise in those experiences, or rewrite this guide to speak for
+        them. But if what you've just read felt familiar, the strategies above and the app below were
+        built to be used by anyone who recognises the loop, not just by people with the same diagnosis
+        as the person who designed it.
+      </p>
+    </div>
+  </section>
+
+  <section id="support">
+    <div class="wrap">
+      <p class="section-label">Before you go</p>
+      <h2>What this is, and what it isn't</h2>
+
+      <div class="note-panel">
+        <p>
+          This page and the LoopBreak app are lived-experience self-help, written and built by an ABI
+          survivor and a friend who supported him. They are not a medical device, not a clinical
+          treatment, and not a substitute for therapy or a proper assessment. They're one thing that
+          has genuinely helped — offered in case it helps you too.
+        </p>
+      </div>
+
+      <div class="note-panel">
+        <p>
+          <strong>If you're worried about your own recovery</strong>, or the loop feels like it's
+          getting worse rather than better, that's worth raising with your GP or your rehabilitation
+          team. You don't need to have a crisis to ask for help — noticing something isn't right is
+          reason enough.
+        </p>
+      </div>
+
+      <div class="note-panel">
+        <p>
+          <strong>If things feel urgent right now</strong> — if you feel unsafe, or you're thinking
+          about harming yourself — please reach out to a real person straight away. This page can't
+          help you in a crisis. A phone call can.
+        </p>
+      </div>
+
+      <ul class="resource-list">
+        <li>
+          <strong>Headway — the brain injury association</strong>
+          <span>UK support and information for brain injury survivors and their families. Helpline: 0808 800 2244. headway.org.uk</span>
+        </li>
+        <li>
+          <strong>Your GP or rehabilitation team</strong>
+          <span>The right first call for anything about your ongoing recovery, medication, or symptoms that concern you.</span>
+        </li>
+        <li>
+          <strong>Samaritans</strong>
+          <span>Free, 24/7, for anyone struggling to cope. Call 116 123, any time, from any phone.</span>
+        </li>
+        <li>
+          <strong>Emergency</strong>
+          <span>If you or someone else is in immediate danger, call 999, or go to your nearest A&amp;E.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Written and built by Brian and Steve. Shared freely, for anyone the loop finds.</p>
+  </div>
+</footer>
+</body>
+</html>

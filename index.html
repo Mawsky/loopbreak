@@ -1,0 +1,2203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#182430" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="LoopBreak" />
+
+<title>LoopBreak — a calm companion for post-ABI rumination</title>
+<meta name="description" content="Break rumination loops: brain dump with a 2-hour worry lock, the 4-step circuit breaker, box breathing, 5-4-3-2-1 grounding, and a two-tap energy check." />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #182430; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const {
+  useState,
+  useEffect,
+  useRef,
+  useCallback
+} = React;
+window.storage = window.storage || {
+  async get(key) {
+    const v = localStorage.getItem(key);
+    if (v === null) throw new Error('not found');
+    return {
+      key,
+      value: v
+    };
+  },
+  async set(key, value) {
+    localStorage.setItem(key, value);
+    return {
+      key,
+      value
+    };
+  }
+};
+
+// ------------------------------------------------------------------
+// LoopBreak v4 — a calm companion for post-ABI rumination
+// v4: appointment sentence-starters, send-to-nominee via share sheet,
+//     Headway helpline signpost, guide served from loopbreak-guide.html
+// Changes from v1 (per Brian's chapter-based enhancement brief):
+//  P0  Muted text lightened to pass WCAG AAA on both surfaces
+//  P1  Reassurance line on Circuit Breaker step 1
+//  P1  "Just get today out of my head" freewrite, separate from Worry Box
+//  P1  Appointment presets in Circuit Breaker step 3 + home banner
+//  P1  Energy history as plain descriptive words (no colours, no scores)
+//  P1  Physical task prompt library on Circuit Breaker step 4
+//  P2  Box breathing runs for a chosen length, ends itself
+//  P2  Occasional, gentle "tell someone" line after a Circuit Breaker run
+//  +   Quiet footer link to the guide site
+// ------------------------------------------------------------------
+
+const C = {
+  bg: "#182430",
+  // matte deep blue
+  card: "#22323F",
+  // raised surface
+  cardSoft: "#1D2B37",
+  teal: "#63BAB1",
+  // primary action
+  tealDim: "#3E7A74",
+  text: "#D9DEDC",
+  // warm off-white
+  textDim: "#B3C0C4",
+  // P0: was #93A3A8 — now 8.4:1 on bg, 7:1 on cards (AAA)
+  amber: "#D8A45F",
+  // vault / locked
+  coral: "#C98274",
+  // gentle warning
+  line: "#2E3F4C"
+};
+const GUIDE_URL = "loopbreak-guide.html"; // lives beside the app on loopbreak.help
+const STORAGE_KEY = "loopbreak-v1"; // unchanged so existing data carries over
+
+const emptyData = {
+  draft: "",
+  draftToday: "",
+  worries: [],
+  freewrites: [],
+  energyLog: [],
+  appointment: null,
+  // { at: epoch ms }
+  breakerRuns: 0,
+  outcomes: [],
+  // kept appointments: { id, worryText|null, outcome, at }
+  draftOutcome: "",
+  nominee: null // the person worries can be sent to (a name, stored locally)
+};
+async function loadData() {
+  try {
+    const res = await window.storage.get(STORAGE_KEY);
+    if (res && res.value) return {
+      ...emptyData,
+      ...JSON.parse(res.value)
+    };
+  } catch (e) {
+    // no saved data yet — start fresh
+  }
+  return {
+    ...emptyData
+  };
+}
+async function persist(data) {
+  try {
+    await window.storage.set(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error("Save failed", e);
+  }
+}
+function fmtTime(ts) {
+  return new Date(ts).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+function fmtDay(ts) {
+  return new Date(ts).toLocaleDateString([], {
+    weekday: "long"
+  });
+}
+function fmtDayTime(ts) {
+  return new Date(ts).toLocaleDateString([], {
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+function fmtDayPart(ts) {
+  const h = new Date(ts).getHours();
+  const part = h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
+  return `${fmtDay(ts)} ${part}`;
+}
+function minsLeft(ts) {
+  return Math.max(0, Math.ceil((ts - Date.now()) / 60000));
+}
+function fmtAppointment(ts) {
+  const d = new Date(ts);
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  const tomorrow = new Date(today.getTime() + 86400000).toDateString() === d.toDateString();
+  const t = fmtTime(ts);
+  if (sameDay) return `${t} today`;
+  if (tomorrow) return `${t} tomorrow`;
+  return `${t} on ${fmtDay(ts)}`;
+}
+
+// ---------------------------------------------------------------
+// Shared UI pieces
+// ---------------------------------------------------------------
+
+function BigButton({
+  label,
+  sub,
+  icon,
+  onClick,
+  color = C.teal,
+  textColor = "#10201E"
+}) {
+  return /*#__PURE__*/React.createElement("button", {
+    onClick: onClick,
+    className: "lb-big",
+    style: {
+      background: color,
+      color: textColor,
+      border: "none",
+      borderRadius: 18,
+      padding: "22px 20px",
+      width: "100%",
+      textAlign: "left",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+      minHeight: 84
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 30,
+      lineHeight: 1
+    },
+    "aria-hidden": "true"
+  }, icon), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
+      fontSize: 20,
+      fontWeight: 700
+    }
+  }, label), sub && /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "block",
+      fontSize: 15,
+      opacity: 0.92,
+      marginTop: 4
+    }
+  }, sub)));
+}
+function QuietButton({
+  label,
+  onClick,
+  color = C.textDim
+}) {
+  return /*#__PURE__*/React.createElement("button", {
+    onClick: onClick,
+    className: "lb-quiet",
+    style: {
+      background: "transparent",
+      color,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      padding: "14px 18px",
+      fontSize: 17,
+      cursor: "pointer",
+      minHeight: 52
+    }
+  }, label);
+}
+function Screen({
+  title,
+  onBack,
+  backLabel = "← Home",
+  children
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 560,
+      margin: "0 auto",
+      padding: "20px 18px 48px"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onBack,
+    className: "lb-quiet",
+    style: {
+      background: "transparent",
+      color: C.teal,
+      border: "none",
+      fontSize: 18,
+      cursor: "pointer",
+      padding: "10px 4px",
+      marginBottom: 6,
+      minHeight: 48
+    }
+  }, backLabel), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontSize: 26,
+      fontWeight: 700,
+      margin: "4px 0 20px",
+      color: C.text
+    }
+  }, title), children);
+}
+
+// ---------------------------------------------------------------
+// Home
+// ---------------------------------------------------------------
+
+function Home({
+  data,
+  setData,
+  go,
+  startAppt
+}) {
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const locked = data.worries.filter(w => w.unlockAt > Date.now()).length;
+  const ready = data.worries.filter(w => w.unlockAt <= Date.now()).length;
+  const appt = data.appointment;
+  const apptDue = appt && appt.at <= Date.now();
+  const clearAppt = () => setData(d => ({
+    ...d,
+    appointment: null
+  }));
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 560,
+      margin: "0 auto",
+      padding: "36px 18px 48px"
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 16,
+      margin: 0
+    }
+  }, greet, "."), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontSize: 30,
+      fontWeight: 700,
+      margin: "6px 0 6px",
+      color: C.text
+    }
+  }, "You're driving the bus."), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 16,
+      margin: "0 0 24px"
+    }
+  }, "One tap. Nothing to remember."), appt && !apptDue && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.cardSoft,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      padding: "14px 18px",
+      marginBottom: 18
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: C.textDim,
+      fontSize: 16,
+      lineHeight: 1.6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: C.amber
+    }
+  }, "📅 Check-in booked for ", fmtAppointment(appt.at), "."), " ", "Until then, it's on the back burner.")), appt && apptDue && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.cardSoft,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      padding: "16px 18px",
+      marginBottom: 18
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 12px",
+      color: C.text,
+      fontSize: 16,
+      lineHeight: 1.6
+    }
+  }, "📅 It's check-in time. Ten minutes, no more — say what's honest, then move on. Or, if it's lost its steam, just let it go. Both count as keeping the deal."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => startAppt({
+      from: "home"
+    }),
+    className: "lb-quiet",
+    style: {
+      background: C.teal,
+      color: "#10201E",
+      border: "none",
+      borderRadius: 12,
+      padding: "14px 18px",
+      fontSize: 17,
+      fontWeight: 700,
+      cursor: "pointer",
+      minHeight: 52
+    }
+  }, "Have the appointment"), /*#__PURE__*/React.createElement("button", {
+    onClick: clearAppt,
+    className: "lb-quiet",
+    style: {
+      background: "transparent",
+      color: C.textDim,
+      border: `2px solid ${C.line}`,
+      borderRadius: 12,
+      padding: "12px 18px",
+      fontSize: 16,
+      cursor: "pointer",
+      minHeight: 48
+    }
+  }, "It's lost its steam — let it go"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement(BigButton, {
+    icon: "🗣",
+    label: "Get a looping worry out of my head",
+    sub: "Write it down. It locks away for 2 hours.",
+    onClick: () => go("dump")
+  }), /*#__PURE__*/React.createElement(BigButton, {
+    icon: "📄",
+    label: "Just get today out of my head",
+    sub: "Empty the day's noise onto the page. No lock, no rules.",
+    color: C.card,
+    textColor: C.text,
+    onClick: () => go("today")
+  }), /*#__PURE__*/React.createElement(BigButton, {
+    icon: "⛓",
+    label: "Break the loop",
+    sub: "The 4-step circuit breaker, one step at a time.",
+    color: C.card,
+    textColor: C.text,
+    onClick: () => go("breaker")
+  }), /*#__PURE__*/React.createElement(BigButton, {
+    icon: "🌬",
+    label: "Ground me",
+    sub: "Breathing and the 5-4-3-2-1 reset.",
+    color: C.card,
+    textColor: C.text,
+    onClick: () => go("ground")
+  }), /*#__PURE__*/React.createElement(BigButton, {
+    icon: "🔋",
+    label: "Energy check",
+    sub: "Two taps. Low battery feeds the loop.",
+    color: C.card,
+    textColor: C.text,
+    onClick: () => go("energy")
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 26
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => go("vault"),
+    className: "lb-quiet",
+    style: {
+      width: "100%",
+      background: C.cardSoft,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      padding: "16px 18px",
+      color: C.textDim,
+      fontSize: 16,
+      cursor: "pointer",
+      textAlign: "left"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: C.amber
+    }
+  }, "🔒 Worry Box"), " — ", locked === 0 && ready === 0 && "empty. Good.", locked > 0 && `${locked} locked away`, locked > 0 && ready > 0 && ", ", ready > 0 && `${ready} ready if you still want ${ready === 1 ? "it" : "them"}`)), /*#__PURE__*/React.createElement("p", {
+    style: {
+      textAlign: "center",
+      marginTop: 30,
+      marginBottom: 0
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: GUIDE_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      color: C.textDim,
+      fontSize: 15,
+      textDecoration: "underline",
+      textUnderlineOffset: 3
+    }
+  }, "New here? Read Brian's guide to the loop")));
+}
+
+// ---------------------------------------------------------------
+// Worry dump + Worry Box (the 2-hour lock — unchanged flow)
+// ---------------------------------------------------------------
+
+function BrainDump({
+  data,
+  setData,
+  go
+}) {
+  const [done, setDone] = useState(false);
+  const update = text => {
+    setData(d => ({
+      ...d,
+      draft: text
+    })); // autosaves via App effect
+  };
+  const lockAway = () => {
+    if (!data.draft.trim()) return;
+    const worry = {
+      id: Date.now().toString(36),
+      text: data.draft.trim(),
+      createdAt: Date.now(),
+      unlockAt: Date.now() + 2 * 60 * 60 * 1000 // 2 hour lock
+    };
+    setData(d => ({
+      ...d,
+      draft: "",
+      worries: [worry, ...d.worries]
+    }));
+    setDone(true);
+  };
+  if (done) {
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: "Locked away",
+      onBack: () => go("home")
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: C.card,
+        borderRadius: 18,
+        padding: 26,
+        textAlign: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 46,
+        marginBottom: 10
+      }
+    }, "🔒"), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 20,
+        color: C.text,
+        margin: "0 0 8px",
+        fontWeight: 600
+      }
+    }, "It's out of your head."), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 17,
+        color: C.textDim,
+        margin: 0,
+        lineHeight: 1.6
+      }
+    }, "The box holds it for 2 hours so you can't spin on it. If it still matters later, it'll be waiting. It usually doesn't.")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        marginTop: 22
+      }
+    }, /*#__PURE__*/React.createElement(BigButton, {
+      icon: "🌬",
+      label: "Ground me now",
+      onClick: () => go("ground")
+    }), /*#__PURE__*/React.createElement(QuietButton, {
+      label: "Back to home",
+      onClick: () => go("home")
+    })));
+  }
+  return /*#__PURE__*/React.createElement(Screen, {
+    title: "Get a looping worry out",
+    onBack: () => go("home")
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 16,
+      lineHeight: 1.6,
+      marginTop: 0
+    }
+  }, "Type the loop exactly as it sounds. No tidying up. Everything saves as you type."), /*#__PURE__*/React.createElement("textarea", {
+    value: data.draft,
+    onChange: e => update(e.target.value),
+    placeholder: "There's that old dog-eared loop again…",
+    rows: 7,
+    style: {
+      width: "100%",
+      boxSizing: "border-box",
+      background: C.cardSoft,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      color: C.text,
+      fontSize: 18,
+      lineHeight: 1.6,
+      padding: 16,
+      resize: "vertical",
+      fontFamily: "inherit"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginTop: 18
+    }
+  }, /*#__PURE__*/React.createElement(BigButton, {
+    icon: "🔒",
+    label: "Lock it in the box",
+    sub: "Held for 2 hours. Out of sight.",
+    onClick: lockAway
+  })));
+}
+function Vault({
+  data,
+  setData,
+  go,
+  tick,
+  startAppt
+}) {
+  const [showDone, setShowDone] = useState(false);
+  const release = id => setData(d => ({
+    ...d,
+    worries: d.worries.filter(w => w.id !== id)
+  }));
+  const releaseOutcome = id => setData(d => ({
+    ...d,
+    outcomes: d.outcomes.filter(o => o.id !== id)
+  }));
+  const locked = data.worries.filter(w => w.unlockAt > Date.now());
+  const ready = data.worries.filter(w => w.unlockAt <= Date.now());
+  return /*#__PURE__*/React.createElement(Screen, {
+    title: "Worry Box",
+    onBack: () => go("home")
+  }, data.worries.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      borderRadius: 18,
+      padding: 26,
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 18,
+      color: C.text,
+      margin: 0
+    }
+  }, "The box is empty."), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 16,
+      color: C.textDim,
+      marginTop: 8
+    }
+  }, "That's a good day.")), locked.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 17,
+      color: C.amber,
+      fontWeight: 600
+    }
+  }, "Locked — not for reading yet"), locked.map(w => /*#__PURE__*/React.createElement("div", {
+    key: w.id,
+    style: {
+      background: C.cardSoft,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      padding: 18,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: C.textDim,
+      fontSize: 16
+    }
+  }, "🔒 Opens in about ", minsLeft(w.unlockAt), " min (", fmtTime(w.unlockAt), ")"))), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 15,
+      lineHeight: 1.6
+    }
+  }, "Re-reading feeds the loop, so the words stay hidden until the lock opens.")), ready.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 17,
+      color: C.teal,
+      fontWeight: 600,
+      marginTop: 22
+    }
+  }, "Ready — if you still want them"), ready.map(w => /*#__PURE__*/React.createElement("div", {
+    key: w.id,
+    style: {
+      background: C.card,
+      borderRadius: 14,
+      padding: 18,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 6px",
+      color: C.textDim,
+      fontSize: 14
+    }
+  }, fmtDayTime(w.createdAt)), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 14px",
+      color: C.text,
+      fontSize: 17,
+      lineHeight: 1.6
+    }
+  }, w.text), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => startAppt({
+      from: "vault",
+      worry: w
+    }),
+    className: "lb-quiet",
+    style: {
+      background: C.teal,
+      color: "#10201E",
+      border: "none",
+      borderRadius: 12,
+      padding: "13px 18px",
+      fontSize: 16,
+      fontWeight: 700,
+      cursor: "pointer",
+      minHeight: 50
+    }
+  }, "Have the appointment"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => release(w.id),
+    className: "lb-quiet",
+    style: {
+      background: "transparent",
+      color: C.textDim,
+      border: `2px solid ${C.line}`,
+      borderRadius: 12,
+      padding: "12px 18px",
+      fontSize: 16,
+      cursor: "pointer",
+      minHeight: 48
+    }
+  }, "It's lost its steam — let it go"))))), data.outcomes.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 26
+    }
+  }, /*#__PURE__*/React.createElement(QuietButton, {
+    label: showDone ? "Hide dealt-with" : `Dealt with (${data.outcomes.length})`,
+    onClick: () => setShowDone(!showDone)
+  }), showDone && data.outcomes.map(o => /*#__PURE__*/React.createElement("div", {
+    key: o.id,
+    style: {
+      background: C.cardSoft,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      padding: 18,
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 6px",
+      color: C.textDim,
+      fontSize: 14
+    }
+  }, fmtDayTime(o.at), " — appointment kept"), o.worryText && /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 8px",
+      color: C.textDim,
+      fontSize: 15,
+      lineHeight: 1.6
+    }
+  }, "The worry: ", o.worryText), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 14px",
+      color: C.text,
+      fontSize: 16,
+      lineHeight: 1.6,
+      whiteSpace: "pre-wrap"
+    }
+  }, o.outcome ? o.outcome : "Faced it. Nothing more needed saying."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => releaseOutcome(o.id),
+    className: "lb-quiet",
+    style: {
+      background: "transparent",
+      color: C.textDim,
+      border: `2px solid ${C.line}`,
+      borderRadius: 12,
+      padding: "10px 16px",
+      fontSize: 15,
+      cursor: "pointer",
+      minHeight: 44
+    }
+  }, "Let it go")))));
+}
+
+// ---------------------------------------------------------------
+// "Just get today out of my head" — freewrite, no lock, no rules
+// ---------------------------------------------------------------
+
+function TodayDump({
+  data,
+  setData,
+  go
+}) {
+  const [done, setDone] = useState(false);
+  const [showPast, setShowPast] = useState(false);
+  const update = text => setData(d => ({
+    ...d,
+    draftToday: text
+  }));
+  const save = () => {
+    if (!data.draftToday.trim()) return;
+    const page = {
+      id: Date.now().toString(36),
+      text: data.draftToday.trim(),
+      at: Date.now()
+    };
+    setData(d => ({
+      ...d,
+      draftToday: "",
+      freewrites: [page, ...d.freewrites].slice(0, 60)
+    }));
+    setDone(true);
+  };
+  const letGo = id => setData(d => ({
+    ...d,
+    freewrites: d.freewrites.filter(f => f.id !== id)
+  }));
+  if (done) {
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: "It's out",
+      onBack: () => go("home")
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: C.card,
+        borderRadius: 18,
+        padding: 26,
+        textAlign: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 46,
+        marginBottom: 10
+      }
+    }, "📄"), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 20,
+        color: C.text,
+        margin: "0 0 8px",
+        fontWeight: 600
+      }
+    }, "The page is holding it now."), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 17,
+        color: C.textDim,
+        margin: 0,
+        lineHeight: 1.6
+      }
+    }, "Nothing to fix, nothing to file. You can read it back any time, or never.")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        marginTop: 22
+      }
+    }, /*#__PURE__*/React.createElement(BigButton, {
+      icon: "🏠",
+      label: "Back to home",
+      onClick: () => go("home")
+    })));
+  }
+  return /*#__PURE__*/React.createElement(Screen, {
+    title: "Just get today out",
+    onBack: () => go("home")
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 16,
+      lineHeight: 1.6,
+      marginTop: 0
+    }
+  }, "Not a looping worry — just the day's noise. Spelling doesn't matter, order doesn't matter. It saves as you type."), /*#__PURE__*/React.createElement("textarea", {
+    value: data.draftToday,
+    onChange: e => update(e.target.value),
+    placeholder: "Today has been…",
+    rows: 8,
+    style: {
+      width: "100%",
+      boxSizing: "border-box",
+      background: C.cardSoft,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      color: C.text,
+      fontSize: 18,
+      lineHeight: 1.6,
+      padding: 16,
+      resize: "vertical",
+      fontFamily: "inherit"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginTop: 18
+    }
+  }, /*#__PURE__*/React.createElement(BigButton, {
+    icon: "📄",
+    label: "That's it out",
+    sub: "Saved. No lock — this one's just pages.",
+    onClick: save
+  }), data.freewrites.length > 0 && /*#__PURE__*/React.createElement(QuietButton, {
+    label: showPast ? "Hide past pages" : `Read past pages (${data.freewrites.length})`,
+    onClick: () => setShowPast(!showPast)
+  })), showPast && data.freewrites.map(f => /*#__PURE__*/React.createElement("div", {
+    key: f.id,
+    style: {
+      background: C.card,
+      borderRadius: 14,
+      padding: 18,
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 6px",
+      color: C.textDim,
+      fontSize: 14
+    }
+  }, fmtDayTime(f.at)), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 14px",
+      color: C.text,
+      fontSize: 17,
+      lineHeight: 1.6,
+      whiteSpace: "pre-wrap"
+    }
+  }, f.text), /*#__PURE__*/React.createElement("button", {
+    onClick: () => letGo(f.id),
+    className: "lb-quiet",
+    style: {
+      background: "transparent",
+      color: C.textDim,
+      border: `2px solid ${C.line}`,
+      borderRadius: 12,
+      padding: "10px 16px",
+      fontSize: 15,
+      cursor: "pointer",
+      minHeight: 44
+    }
+  }, "Let it go"))));
+}
+
+// ---------------------------------------------------------------
+// Circuit Breaker — Brian's 4-step routine, one card at a time
+// ---------------------------------------------------------------
+
+const PIVOT_TASKS = [{
+  icon: "☕",
+  label: "Make a cup of tea"
+}, {
+  icon: "🚪",
+  label: "Step outside for two minutes"
+}, {
+  icon: "🪴",
+  label: "Water a plant"
+}, {
+  icon: "🚶",
+  label: "Walk to the end of the street and back"
+}, {
+  icon: "🧺",
+  label: "Put one thing back where it belongs"
+}, {
+  icon: "🪟",
+  label: "Look out the window — count three things moving"
+}];
+function apptPresets() {
+  const now = new Date();
+  const inOneHour = now.getTime() + 60 * 60 * 1000;
+  const evening = new Date(now);
+  evening.setHours(20, 0, 0, 0);
+  let eveningTs = evening.getTime();
+  if (eveningTs <= now.getTime() + 15 * 60 * 1000) eveningTs += 86400000; // past 7:45pm → tomorrow evening
+  const morning = new Date(now.getTime() + 86400000);
+  morning.setHours(9, 0, 0, 0);
+  return [{
+    label: "In 1 hour",
+    at: inOneHour
+  }, {
+    label: eveningTs > now.getTime() + 86400000 * 0.6 && evening.getDate() !== now.getDate() ? "Tomorrow evening (8pm)" : "This evening (8pm)",
+    at: eveningTs
+  }, {
+    label: "Tomorrow morning (9am)",
+    at: morning.getTime()
+  }];
+}
+function Breaker({
+  data,
+  setData,
+  go,
+  startAppt,
+  initialStep = 0
+}) {
+  const [i, setI] = useState(initialStep);
+  const [booked, setBooked] = useState(null);
+  const [finished, setFinished] = useState(false);
+  const [pickedTask, setPickedTask] = useState(null);
+  const book = at => {
+    setData(d => ({
+      ...d,
+      appointment: {
+        at
+      }
+    }));
+    setBooked(at);
+  };
+  const finish = task => {
+    setPickedTask(task || null);
+    setData(d => ({
+      ...d,
+      breakerRuns: (d.breakerRuns || 0) + 1
+    }));
+    setFinished(true);
+  };
+  if (finished) {
+    // Occasional, gentle, non-recurring nudge — roughly every third completion
+    const runs = data.breakerRuns || 0;
+    const showNudge = runs > 0 && runs % 3 === 0;
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: "Loop broken",
+      onBack: () => go("home")
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: C.card,
+        borderRadius: 18,
+        padding: 26,
+        textAlign: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 46,
+        marginBottom: 10
+      }
+    }, pickedTask ? pickedTask.icon : "✓"), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 21,
+        fontWeight: 700,
+        color: C.text,
+        margin: "0 0 8px",
+        lineHeight: 1.4
+      }
+    }, pickedTask ? pickedTask.label + "." : "Off you go."), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 17,
+        color: C.textDim,
+        margin: 0,
+        lineHeight: 1.6
+      }
+    }, "Close the app and go do it. That's the win — the loop can't follow you there.")), showNudge && /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: C.textDim,
+        fontSize: 16,
+        lineHeight: 1.6,
+        textAlign: "center",
+        marginTop: 20
+      }
+    }, "Might be worth telling someone how today went. No report needed — just a word."), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 20
+      }
+    }, /*#__PURE__*/React.createElement(QuietButton, {
+      label: "Back to home",
+      onClick: () => go("home")
+    })));
+  }
+  const steps = [{
+    title: "1 · Label the glitch",
+    say: "\u201CThere's that old dog-eared loop again. This is just neurological static from an injured brain.\u201D",
+    why: "Naming the mechanism creates distance. You are not the faulty data your brain is producing.",
+    extra: "This loop isn't a failure of willpower. It's an alarm system stuck on after the injury — and stuck alarms can be interrupted."
+  }, {
+    title: "2 · Thought is not fact",
+    say: "\u201CThis thought is purely imagined. The thought exists right now, but the fact never did. A thought cannot make anything happen.\u201D",
+    why: "This dismantles thought-action fusion. Your alarm system gets told: you are completely safe."
+  }, {
+    title: "3 · Give it an appointment",
+    say: "\u201CI'm safe to ignore this right now. If it still wants to talk, it can check in later — for ten minutes, no more.\u201D",
+    why: "Fighting a thought feeds it. Booking it a specific, named time proves you're the one driving the bus. By then it's usually lost its steam."
+  }, {
+    title: "4 · Drop the mic and pivot",
+    say: "One small physical thing, right now. Pick one — no deciding needed:",
+    why: "An ABI brain can't run two intensive jobs at once. A real-world task starves the loop of processing power."
+  }];
+  const s = steps[i];
+  return /*#__PURE__*/React.createElement(Screen, {
+    title: "Break the loop",
+    onBack: () => go("home")
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      borderRadius: 18,
+      padding: 24
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.teal,
+      fontSize: 15,
+      fontWeight: 700,
+      letterSpacing: 0.5,
+      margin: "0 0 12px",
+      textTransform: "uppercase"
+    }
+  }, s.title), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.text,
+      fontSize: 21,
+      lineHeight: 1.55,
+      margin: "0 0 18px",
+      fontWeight: 600
+    }
+  }, s.say), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 16,
+      lineHeight: 1.6,
+      margin: 0
+    }
+  }, /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: C.text
+    }
+  }, "Why it works: "), s.why), s.extra && /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 16,
+      lineHeight: 1.6,
+      marginTop: 12,
+      marginBottom: 0
+    }
+  }, s.extra)), i === 2 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginTop: 20
+    }
+  }, !booked && /*#__PURE__*/React.createElement(BigButton, {
+    icon: "🎙",
+    label: "Deal with it right now",
+    sub: "Sometimes now is the appointment. Say it straight.",
+    onClick: () => startAppt({
+      from: "breaker"
+    })
+  }), !booked && apptPresets().map(p => /*#__PURE__*/React.createElement(BigButton, {
+    key: p.label,
+    icon: "📅",
+    label: p.label,
+    color: C.card,
+    textColor: C.text,
+    onClick: () => book(p.at)
+  })), booked && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.cardSoft,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      padding: "16px 18px"
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: C.text,
+      fontSize: 17,
+      lineHeight: 1.6
+    }
+  }, "📅 Booked for ", /*#__PURE__*/React.createElement("strong", null, fmtAppointment(booked)), ". Deal made. Until then it's on the back burner — you'll see the check-in on the home screen.")), !booked && /*#__PURE__*/React.createElement(BigButton, {
+    icon: "🔒",
+    label: "Or lock it in the Worry Box",
+    sub: "2-hour appointment, handled.",
+    color: C.amber,
+    textColor: "#241A0C",
+    onClick: () => go("dump")
+  }), /*#__PURE__*/React.createElement(BigButton, {
+    icon: "→",
+    label: "Next step",
+    onClick: () => setI(3)
+  }), /*#__PURE__*/React.createElement(QuietButton, {
+    label: "Back a step",
+    onClick: () => setI(1)
+  })), i === 3 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginTop: 20
+    }
+  }, PIVOT_TASKS.map(t => /*#__PURE__*/React.createElement(BigButton, {
+    key: t.label,
+    icon: t.icon,
+    label: t.label,
+    color: C.card,
+    textColor: C.text,
+    onClick: () => finish(t)
+  })), /*#__PURE__*/React.createElement(BigButton, {
+    icon: "✓",
+    label: "I've got my own task",
+    onClick: () => finish(null)
+  }), /*#__PURE__*/React.createElement(QuietButton, {
+    label: "Back a step",
+    onClick: () => setI(2)
+  })), i < 2 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginTop: 20
+    }
+  }, /*#__PURE__*/React.createElement(BigButton, {
+    icon: "→",
+    label: "Next step",
+    onClick: () => setI(i + 1)
+  }), i > 0 && /*#__PURE__*/React.createElement(QuietButton, {
+    label: "Back a step",
+    onClick: () => setI(i - 1)
+  })), /*#__PURE__*/React.createElement("p", {
+    style: {
+      textAlign: "center",
+      color: C.textDim,
+      fontSize: 14,
+      marginTop: 18
+    }
+  }, "Step ", i + 1, " of 4"));
+}
+
+// ---------------------------------------------------------------
+// The Appointment — keep the deal: face it, be honest, move on
+// ---------------------------------------------------------------
+
+const STARTERS = ["What's true is…", "The story my brain added is…", "One thing I can actually do about it is…", "If a friend brought me this worry, I'd tell them…"];
+function buildShareText(worryText, outcome) {
+  const lines = ["From LoopBreak — a worry I've dealt with."];
+  if (worryText) lines.push("", "The worry: " + worryText);
+  if (outcome) lines.push("", "Where I got to: " + outcome);
+  return lines.join("\n");
+}
+function Appointment({
+  ctx,
+  data,
+  setData,
+  go
+}) {
+  const [mode, setMode] = useState("talk"); // talk -> done
+  const [savedId, setSavedId] = useState(null);
+  const [secs, setSecs] = useState(0);
+  const [usedStarters, setUsedStarters] = useState([]);
+  const [askName, setAskName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [shared, setShared] = useState(null);
+  const addStarter = idx => {
+    setUsedStarters(u => u.includes(idx) ? u : [...u, idx]);
+    setData(d => {
+      const cur = d.draftOutcome || "";
+      const joiner = cur.trim() ? "\n\n" : "";
+      return {
+        ...d,
+        draftOutcome: cur + joiner + STARTERS[idx] + " "
+      };
+    });
+  };
+  const saveNominee = () => {
+    const n = nameDraft.trim();
+    if (!n) return;
+    setData(d => ({
+      ...d,
+      nominee: n
+    }));
+    setAskName(false);
+  };
+  const sendToNominee = async () => {
+    const o = data.outcomes.find(x => x.id === savedId);
+    const text = buildShareText(ctx.worry ? ctx.worry.text : null, o ? o.outcome : "");
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          text
+        });
+        setShared("sent");
+      } else {
+        await navigator.clipboard.writeText(text);
+        setShared("copied");
+      }
+    } catch (e) {
+      // user cancelled the share sheet — that's fine, no failure state
+    }
+  };
+  useEffect(() => {
+    const id = setInterval(() => setSecs(s => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const minsIn = Math.floor(secs / 60);
+  const overTime = minsIn >= 10;
+  const update = t => setData(d => ({
+    ...d,
+    draftOutcome: t
+  }));
+  const finish = () => {
+    const text = (data.draftOutcome || "").trim();
+    const now = Date.now();
+    if (savedId) {
+      // late thought — update the same record
+      setData(d => ({
+        ...d,
+        draftOutcome: "",
+        outcomes: d.outcomes.map(o => o.id === savedId ? {
+          ...o,
+          outcome: text,
+          at: now
+        } : o)
+      }));
+    } else {
+      const id = now.toString(36);
+      setSavedId(id);
+      setData(d => ({
+        ...d,
+        draftOutcome: "",
+        outcomes: [{
+          id,
+          worryText: ctx.worry ? ctx.worry.text : null,
+          outcome: text,
+          at: now
+        }, ...d.outcomes].slice(0, 60),
+        worries: ctx.worry ? d.worries.filter(w => w.id !== ctx.worry.id) : d.worries,
+        appointment: ctx.from === "home" ? null : d.appointment
+      }));
+    }
+    setMode("done");
+  };
+  const addThought = () => {
+    const o = data.outcomes.find(x => x.id === savedId);
+    setData(d => ({
+      ...d,
+      draftOutcome: o ? o.outcome : ""
+    }));
+    setMode("talk");
+  };
+  if (mode === "done") {
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: "Appointment kept",
+      onBack: () => go("home")
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: C.card,
+        borderRadius: 18,
+        padding: 26,
+        textAlign: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 46,
+        marginBottom: 10
+      }
+    }, "🤝"), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 20,
+        color: C.text,
+        margin: "0 0 8px",
+        fontWeight: 600
+      }
+    }, "Deal kept. Honest words down."), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 17,
+        color: C.textDim,
+        margin: 0,
+        lineHeight: 1.6
+      }
+    }, "You gave it its slot and looked at it straight. Now you must move on — that's the other half of the deal. It's saved under \"Dealt with\" in the Worry Box if you ever want it.")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        marginTop: 22
+      }
+    }, /*#__PURE__*/React.createElement(BigButton, {
+      icon: "→",
+      label: "Now pivot",
+      sub: "One small physical thing — the loop can't follow you there.",
+      onClick: () => go("breaker4")
+    }), data.nominee && !askName && /*#__PURE__*/React.createElement(BigButton, {
+      icon: "📤",
+      label: shared === "sent" ? `Sent to ${data.nominee} ✓` : shared === "copied" ? "Copied — paste it to them ✓" : `Send to ${data.nominee}`,
+      sub: shared ? "Off your chest and into good hands." : "The worry and where you got to — for a real reader.",
+      color: C.card,
+      textColor: C.text,
+      onClick: sendToNominee
+    }), !data.nominee && !askName && /*#__PURE__*/React.createElement(QuietButton, {
+      label: "Send this to someone",
+      onClick: () => setAskName(true)
+    }), askName && /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: C.cardSoft,
+        border: `2px solid ${C.line}`,
+        borderRadius: 14,
+        padding: 18
+      }
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        margin: "0 0 10px",
+        color: C.text,
+        fontSize: 17,
+        lineHeight: 1.6
+      }
+    }, "Who's your person? A friend, family member, therapist — whoever should read these. Just their name; it stays on this device."), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: nameDraft,
+      onChange: e => setNameDraft(e.target.value),
+      placeholder: "e.g. Steve, or 'my therapist'",
+      style: {
+        width: "100%",
+        boxSizing: "border-box",
+        background: C.bg,
+        border: `2px solid ${C.line}`,
+        borderRadius: 12,
+        color: C.text,
+        fontSize: 17,
+        padding: "13px 14px",
+        fontFamily: "inherit",
+        marginBottom: 12
+      }
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: saveNominee,
+      className: "lb-quiet",
+      style: {
+        background: C.teal,
+        color: "#10201E",
+        border: "none",
+        borderRadius: 12,
+        padding: "13px 18px",
+        fontSize: 16,
+        fontWeight: 700,
+        cursor: "pointer",
+        minHeight: 50
+      }
+    }, "That's my person"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setAskName(false),
+      className: "lb-quiet",
+      style: {
+        background: "transparent",
+        color: C.textDim,
+        border: `2px solid ${C.line}`,
+        borderRadius: 12,
+        padding: "11px 18px",
+        fontSize: 15,
+        cursor: "pointer",
+        minHeight: 46
+      }
+    }, "Not now"))), /*#__PURE__*/React.createElement(QuietButton, {
+      label: "A late thought? Add it",
+      onClick: addThought
+    }), /*#__PURE__*/React.createElement(QuietButton, {
+      label: "Back to home",
+      onClick: () => go("home")
+    }), /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: C.textDim,
+        fontSize: 15,
+        lineHeight: 1.7,
+        margin: "8px 0 0",
+        textAlign: "center"
+      }
+    }, "No one to send it to? Headway's free, confidential helpline is run by people who understand brain injury:", " ", /*#__PURE__*/React.createElement("a", {
+      href: "tel:08088002244",
+      style: {
+        color: C.teal,
+        textDecoration: "underline",
+        textUnderlineOffset: 3
+      }
+    }, "0808 800 2244"), " ", "(Mon–Fri, 9–5)."), data.nominee && !askName && /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setNameDraft(data.nominee);
+        setAskName(true);
+      },
+      className: "lb-quiet",
+      style: {
+        background: "transparent",
+        color: C.textDim,
+        border: "none",
+        fontSize: 14,
+        cursor: "pointer",
+        padding: 8,
+        textDecoration: "underline",
+        textUnderlineOffset: 3
+      }
+    }, "Change who this goes to")));
+  }
+  return /*#__PURE__*/React.createElement(Screen, {
+    title: "The appointment",
+    onBack: () => go("home")
+  }, ctx.worry && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.cardSoft,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      padding: 18,
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 6px",
+      color: C.textDim,
+      fontSize: 14
+    }
+  }, "What you locked away:"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: C.text,
+      fontSize: 17,
+      lineHeight: 1.6
+    }
+  }, ctx.worry.text)), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 16,
+      lineHeight: 1.6,
+      marginTop: 0
+    }
+  }, "This is its slot — ten minutes, no more. Look at it straight and be honest. Tap a starter and finish the sentence — no blank page to face. It saves as you type."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginBottom: 14
+    }
+  }, STARTERS.map((st, idx) => {
+    const used = usedStarters.includes(idx);
+    return /*#__PURE__*/React.createElement("button", {
+      key: idx,
+      onClick: () => addStarter(idx),
+      className: "lb-quiet",
+      style: {
+        background: used ? "transparent" : C.card,
+        color: used ? C.textDim : C.text,
+        border: `2px solid ${used ? C.line : C.tealDim}`,
+        borderRadius: 12,
+        padding: "13px 16px",
+        fontSize: 16,
+        textAlign: "left",
+        cursor: "pointer",
+        minHeight: 50,
+        opacity: used ? 0.7 : 1
+      }
+    }, used ? "✓ " : "+ ", st);
+  })), /*#__PURE__*/React.createElement("textarea", {
+    value: data.draftOutcome,
+    onChange: e => update(e.target.value),
+    placeholder: "Looking at it straight…",
+    rows: 8,
+    style: {
+      width: "100%",
+      boxSizing: "border-box",
+      background: C.cardSoft,
+      border: `2px solid ${C.line}`,
+      borderRadius: 14,
+      color: C.text,
+      fontSize: 18,
+      lineHeight: 1.6,
+      padding: 16,
+      resize: "vertical",
+      fontFamily: "inherit"
+    }
+  }), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 15,
+      lineHeight: 1.6,
+      margin: "10px 0 0"
+    }
+  }, overTime ? "Time's about up. Say the last honest thing and close it — anything left over can book another slot." : `About ${10 - minsIn} minutes on the clock. No rush inside it.`), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginTop: 18
+    }
+  }, /*#__PURE__*/React.createElement(BigButton, {
+    icon: "🤝",
+    label: "That's dealt with — move on",
+    sub: "Keeping your half of the deal.",
+    onClick: finish
+  })));
+}
+
+// ---------------------------------------------------------------
+// Grounding: menu, timed Box Breathing, 5-4-3-2-1
+// ---------------------------------------------------------------
+
+function GroundMenu({
+  go
+}) {
+  return /*#__PURE__*/React.createElement(Screen, {
+    title: "Ground me",
+    onBack: () => go("home")
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement(BigButton, {
+    icon: "◻",
+    label: "Box breathing",
+    sub: "4 in · 4 hold · 4 out · 4 hold. Eyes can stay closed.",
+    onClick: () => go("breathe")
+  }), /*#__PURE__*/React.createElement(BigButton, {
+    icon: "👁",
+    label: "5-4-3-2-1 reset",
+    sub: "Back into the room, one sense at a time.",
+    color: C.card,
+    textColor: C.text,
+    onClick: () => go("senses")
+  })));
+}
+const PHASES = [{
+  label: "Breathe in",
+  secs: 4,
+  scale: 1
+}, {
+  label: "Hold",
+  secs: 4,
+  scale: 1
+}, {
+  label: "Breathe out",
+  secs: 4,
+  scale: 0.55
+}, {
+  label: "Hold",
+  secs: 4,
+  scale: 0.55
+}];
+const BREATHE_LENGTHS = [{
+  label: "About a minute",
+  cycles: 4
+}, {
+  label: "About 3 minutes",
+  cycles: 11
+}, {
+  label: "About 5 minutes",
+  cycles: 19
+}];
+function Breathe({
+  go
+}) {
+  const [target, setTarget] = useState(null); // cycles chosen
+  const [cycle, setCycle] = useState(0);
+  const [phase, setPhase] = useState(0);
+  const [count, setCount] = useState(4);
+  const [done, setDone] = useState(false);
+  const reduced = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  useEffect(() => {
+    if (target === null || done) return;
+    const id = setInterval(() => {
+      setCount(c => {
+        if (c > 1) return c - 1;
+        setPhase(p => {
+          const np = (p + 1) % 4;
+          if (navigator.vibrate) navigator.vibrate(np % 2 === 0 ? [80, 60, 80] : 120);
+          if (np === 0) {
+            setCycle(cy => {
+              const ncy = cy + 1;
+              if (ncy >= target) setDone(true);
+              return ncy;
+            });
+          }
+          return np;
+        });
+        return 4;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [target, done]);
+  if (done) {
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: "Box breathing",
+      onBack: () => go("ground"),
+      backLabel: "← Ground me"
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: C.card,
+        borderRadius: 18,
+        padding: 30,
+        textAlign: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 46,
+        marginBottom: 10
+      }
+    }, "🌿"), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 21,
+        fontWeight: 700,
+        color: C.text,
+        margin: "0 0 8px"
+      }
+    }, "Done. Back to steady."), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 16,
+        color: C.textDim,
+        margin: 0,
+        lineHeight: 1.6
+      }
+    }, "It finished itself — nothing to get right, nothing to keep going.")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        marginTop: 20
+      }
+    }, /*#__PURE__*/React.createElement(BigButton, {
+      icon: "🏠",
+      label: "Back to home",
+      onClick: () => go("home")
+    }), /*#__PURE__*/React.createElement(QuietButton, {
+      label: "Ground me menu",
+      onClick: () => go("ground")
+    })));
+  }
+  if (target === null) {
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: "Box breathing",
+      onBack: () => go("ground"),
+      backLabel: "← Ground me"
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: C.textDim,
+        fontSize: 16,
+        lineHeight: 1.6,
+        marginTop: 0
+      }
+    }, "How long? It stops itself when it's done — you don't need to watch a clock."), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 14
+      }
+    }, BREATHE_LENGTHS.map(b => /*#__PURE__*/React.createElement(BigButton, {
+      key: b.label,
+      icon: "◻",
+      label: b.label,
+      color: C.card,
+      textColor: C.text,
+      onClick: () => {
+        setTarget(b.cycles);
+        setCycle(0);
+        setPhase(0);
+        setCount(4);
+        if (navigator.vibrate) navigator.vibrate(80);
+      }
+    }))), /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: C.textDim,
+        fontSize: 15,
+        lineHeight: 1.6,
+        marginTop: 18
+      }
+    }, "On phones that support it, you'll feel a buzz at each change — so your eyes can stay closed."));
+  }
+  const p = PHASES[phase];
+  return /*#__PURE__*/React.createElement(Screen, {
+    title: "Box breathing",
+    onBack: () => go("ground"),
+    backLabel: "← Ground me"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      borderRadius: 18,
+      padding: 30,
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    "aria-hidden": "true",
+    style: {
+      width: 150,
+      height: 150,
+      margin: "0 auto 24px",
+      borderRadius: 28,
+      border: `3px solid ${C.tealDim}`,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 110,
+      height: 110,
+      borderRadius: 20,
+      background: C.teal,
+      opacity: 0.9,
+      transform: `scale(${p.scale})`,
+      transition: reduced ? "none" : "transform 3.6s ease-in-out"
+    }
+  })), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 26,
+      fontWeight: 700,
+      color: C.text,
+      margin: "0 0 6px"
+    }
+  }, p.label), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 44,
+      fontWeight: 700,
+      color: C.teal,
+      margin: 0,
+      fontVariantNumeric: "tabular-nums"
+    }
+  }, count)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginTop: 20
+    }
+  }, /*#__PURE__*/React.createElement(QuietButton, {
+    label: "Stop early — I'm steadier now",
+    onClick: () => setDone(true)
+  })));
+}
+const SENSE_STEPS = [{
+  n: 5,
+  verb: "see",
+  icon: "👁",
+  hint: "Look around slowly. Name each one out loud."
+}, {
+  n: 4,
+  verb: "touch",
+  icon: "✋",
+  hint: "The chair, your sleeve, the table. Feel each one."
+}, {
+  n: 3,
+  verb: "hear",
+  icon: "👂",
+  hint: "Near sounds and far sounds both count."
+}, {
+  n: 2,
+  verb: "smell",
+  icon: "👃",
+  hint: "Or two smells you like, from memory."
+}, {
+  n: 1,
+  verb: "taste",
+  icon: "👅",
+  hint: "Or take one slow sip of a drink."
+}];
+function Senses({
+  go
+}) {
+  const [i, setI] = useState(0);
+  if (i >= SENSE_STEPS.length) {
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: "5-4-3-2-1 reset",
+      onBack: () => go("ground"),
+      backLabel: "← Ground me"
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: C.card,
+        borderRadius: 18,
+        padding: 30,
+        textAlign: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 46,
+        marginBottom: 10
+      }
+    }, "🌿"), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 21,
+        fontWeight: 700,
+        color: C.text,
+        margin: "0 0 8px"
+      }
+    }, "You're back in the room."), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 16,
+        color: C.textDim,
+        margin: 0,
+        lineHeight: 1.6
+      }
+    }, "The loop needed your attention to keep spinning. It didn't get it.")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 20
+      }
+    }, /*#__PURE__*/React.createElement(BigButton, {
+      icon: "🏠",
+      label: "Back to home",
+      onClick: () => go("home")
+    })));
+  }
+  const s = SENSE_STEPS[i];
+  return /*#__PURE__*/React.createElement(Screen, {
+    title: "5-4-3-2-1 reset",
+    onBack: () => go("ground"),
+    backLabel: "← Ground me"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      borderRadius: 18,
+      padding: 30,
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 44,
+      marginBottom: 8
+    },
+    "aria-hidden": "true"
+  }, s.icon), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 24,
+      fontWeight: 700,
+      color: C.text,
+      margin: "0 0 10px",
+      lineHeight: 1.4
+    }
+  }, "Name ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: C.teal
+    }
+  }, s.n), " ", s.n === 1 ? "thing" : "things", " you can ", s.verb), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 16,
+      color: C.textDim,
+      margin: 0,
+      lineHeight: 1.6
+    }
+  }, s.hint)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20
+    }
+  }, /*#__PURE__*/React.createElement(BigButton, {
+    icon: "✓",
+    label: `Done — ${i === SENSE_STEPS.length - 1 ? "finish" : "next"}`,
+    onClick: () => setI(i + 1)
+  })), /*#__PURE__*/React.createElement("p", {
+    style: {
+      textAlign: "center",
+      color: C.textDim,
+      fontSize: 14,
+      marginTop: 18
+    }
+  }, "Step ", i + 1, " of ", SENSE_STEPS.length));
+}
+
+// ---------------------------------------------------------------
+// Energy tracker — history is a record, never a report card
+// ---------------------------------------------------------------
+
+function Energy({
+  data,
+  setData,
+  go
+}) {
+  const [logged, setLogged] = useState(null);
+  const log = level => {
+    setData(d => ({
+      ...d,
+      energyLog: [{
+        level,
+        at: Date.now()
+      }, ...d.energyLog].slice(0, 60)
+    }));
+    setLogged(level);
+  };
+  const recent = data.energyLog.slice(0, 7);
+  return /*#__PURE__*/React.createElement(Screen, {
+    title: "Energy check",
+    onBack: () => go("home")
+  }, !logged && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 16,
+      lineHeight: 1.6,
+      marginTop: 0
+    }
+  }, "How's the battery right now? No sliders, no scores. One tap."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement(BigButton, {
+    icon: "🪫",
+    label: "Low",
+    sub: "Foggy, heavy, running on fumes.",
+    color: C.card,
+    textColor: C.text,
+    onClick: () => log("low")
+  }), /*#__PURE__*/React.createElement(BigButton, {
+    icon: "🔋",
+    label: "Charging",
+    sub: "Getting there. Steady.",
+    color: C.card,
+    textColor: C.text,
+    onClick: () => log("charging")
+  }), /*#__PURE__*/React.createElement(BigButton, {
+    icon: "⚡",
+    label: "Full",
+    sub: "Clear-headed and good to go.",
+    color: C.card,
+    textColor: C.text,
+    onClick: () => log("full")
+  }))), logged === "low" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      borderRadius: 18,
+      padding: 26
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 20,
+      fontWeight: 700,
+      color: C.text,
+      margin: "0 0 10px"
+    }
+  }, "Battery is low."), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 17,
+      color: C.text,
+      lineHeight: 1.6,
+      margin: 0
+    }
+  }, "Low battery is when loops bite hardest — it's the fuel they run on. Close the app and rest for 15 minutes. No screens if you can manage it. That's not giving up, that's maintenance.")), logged === "charging" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      borderRadius: 18,
+      padding: 26
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 20,
+      fontWeight: 700,
+      color: C.text,
+      margin: "0 0 10px"
+    }
+  }, "Charging. Noted."), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 17,
+      color: C.text,
+      lineHeight: 1.6,
+      margin: 0
+    }
+  }, "Keep tasks light. If a loop shows up while you're at half power, don't argue with it — lock it in the box.")), logged === "full" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      borderRadius: 18,
+      padding: 26
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 20,
+      fontWeight: 700,
+      color: C.text,
+      margin: "0 0 10px"
+    }
+  }, "Full battery. Logged."), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 17,
+      color: C.text,
+      lineHeight: 1.6,
+      margin: 0
+    }
+  }, "Good time for the things that need a clear head. Enjoy it.")), logged && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20
+    }
+  }, /*#__PURE__*/React.createElement(BigButton, {
+    icon: "🏠",
+    label: "Back to home",
+    onClick: () => go("home")
+  })), recent.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 28
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 16,
+      color: C.textDim,
+      fontWeight: 600,
+      marginBottom: 4
+    }
+  }, "The last few check-ins"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 14,
+      color: C.textDim,
+      margin: "0 0 10px"
+    }
+  }, "Just a record, not a report card. Sometimes a pattern shows itself."), recent.map((e, idx) => /*#__PURE__*/React.createElement("p", {
+    key: idx,
+    style: {
+      color: C.text,
+      fontSize: 16,
+      margin: 0,
+      padding: "9px 0",
+      borderBottom: `1px solid ${C.line}`
+    }
+  }, fmtDayPart(e.at), ": ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      textTransform: "capitalize"
+    }
+  }, e.level)))));
+}
+
+// ---------------------------------------------------------------
+// App shell
+// ---------------------------------------------------------------
+
+function App() {
+  const [view, setView] = useState("home");
+  const [apptCtx, setApptCtx] = useState(null);
+  const [data, setDataState] = useState(emptyData);
+  const [loaded, setLoaded] = useState(false);
+  const [tick, setTick] = useState(0);
+  const saveTimer = useRef(null);
+  useEffect(() => {
+    loadData().then(d => {
+      setDataState(d);
+      setLoaded(true);
+    });
+  }, []);
+
+  // gentle clock for vault countdowns and the appointment banner
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  // debounced autosave on any data change
+  const setData = useCallback(updater => {
+    setDataState(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => persist(next), 600);
+      return next;
+    });
+  }, []);
+  const go = v => setView(v);
+  const startAppt = ctx => {
+    setApptCtx(ctx);
+    setView("appt");
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: C.bg,
+      color: C.text,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontSize: 17,
+      lineHeight: 1.5
+    }
+  }, /*#__PURE__*/React.createElement("style", null, `
+        button:focus-visible { outline: 3px solid ${C.teal}; outline-offset: 3px; }
+        textarea:focus-visible { outline: 3px solid ${C.teal}; outline-offset: 2px; border-color: transparent; }
+        a:focus-visible { outline: 3px solid ${C.teal}; outline-offset: 3px; }
+        .lb-big:active { transform: scale(0.985); }
+        @media (prefers-reduced-motion: reduce) {
+          .lb-big:active { transform: none; }
+        }
+        ::placeholder { color: ${C.textDim}; opacity: 0.75; }
+      `), !loaded && /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 560,
+      margin: "0 auto",
+      padding: "60px 18px",
+      textAlign: "center",
+      color: C.textDim,
+      fontSize: 17
+    }
+  }, "Opening your space…"), loaded && view === "home" && /*#__PURE__*/React.createElement(Home, {
+    data: data,
+    setData: setData,
+    go: go,
+    startAppt: startAppt
+  }), loaded && view === "dump" && /*#__PURE__*/React.createElement(BrainDump, {
+    data: data,
+    setData: setData,
+    go: go
+  }), loaded && view === "today" && /*#__PURE__*/React.createElement(TodayDump, {
+    data: data,
+    setData: setData,
+    go: go
+  }), loaded && view === "vault" && /*#__PURE__*/React.createElement(Vault, {
+    data: data,
+    setData: setData,
+    go: go,
+    tick: tick,
+    startAppt: startAppt
+  }), loaded && view === "breaker" && /*#__PURE__*/React.createElement(Breaker, {
+    data: data,
+    setData: setData,
+    go: go,
+    startAppt: startAppt
+  }), loaded && view === "breaker4" && /*#__PURE__*/React.createElement(Breaker, {
+    data: data,
+    setData: setData,
+    go: go,
+    startAppt: startAppt,
+    initialStep: 3
+  }), loaded && view === "appt" && apptCtx && /*#__PURE__*/React.createElement(Appointment, {
+    ctx: apptCtx,
+    data: data,
+    setData: setData,
+    go: go
+  }), loaded && view === "ground" && /*#__PURE__*/React.createElement(GroundMenu, {
+    go: go
+  }), loaded && view === "breathe" && /*#__PURE__*/React.createElement(Breathe, {
+    go: go
+  }), loaded && view === "senses" && /*#__PURE__*/React.createElement(Senses, {
+    go: go
+  }), loaded && view === "energy" && /*#__PURE__*/React.createElement(Energy, {
+    data: data,
+    setData: setData,
+    go: go
+  }));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(function () {});
+}
+</script>
+</body>
+</html>
