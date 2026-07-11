@@ -1,6 +1,6 @@
 // LoopBreak service worker — offline support.
 // When updating the app or guide, bump this version so everyone gets the new build.
-const CACHE = "loopbreak-v4.0.0";
+const CACHE = "loopbreak-v5.0.0";
 const CORE = [
   "./",
   "https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js",

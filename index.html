@@ -48,7 +48,9 @@ window.storage = window.storage || {
 };
 
 // ------------------------------------------------------------------
-// LoopBreak v4 — a calm companion for post-ABI rumination
+// LoopBreak v5 — a calm companion for post-ABI rumination
+// v5: sorting step with four typed answers, Safety Box deferral,
+//     Samaritans signpost, worry-box navigation fixes. Previously
 // v4: appointment sentence-starters, send-to-nominee via share sheet,
 //     Headway helpline signpost, guide served from loopbreak-guide.html
 // Changes from v1 (per Brian's chapter-based enhancement brief):
@@ -274,7 +276,8 @@ function Home({
 }) {
   const hour = new Date().getHours();
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const locked = data.worries.filter(w => w.unlockAt > Date.now()).length;
+  const locked = data.worries.filter(w => w.unlockAt > Date.now() && !w.safety).length;
+  const parked = data.worries.filter(w => w.unlockAt > Date.now() && w.safety).length;
   const ready = data.worries.filter(w => w.unlockAt <= Date.now()).length;
   const appt = data.appointment;
   const apptDue = appt && appt.at <= Date.now();
@@ -437,7 +440,7 @@ function Home({
     style: {
       color: C.amber
     }
-  }, "🔒 Worry Box"), " — ", locked === 0 && ready === 0 && "empty. Good.", locked > 0 && `${locked} locked away`, locked > 0 && ready > 0 && ", ", ready > 0 && `${ready} ready if you still want ${ready === 1 ? "it" : "them"}`)), /*#__PURE__*/React.createElement("p", {
+  }, "🔒 Worry Box"), " — ", locked === 0 && ready === 0 && parked === 0 && "empty. Good.", locked > 0 && `${locked} locked away`, locked > 0 && (parked > 0 || ready > 0) && ", ", parked > 0 && `${parked} in the Safety Box`, parked > 0 && ready > 0 && ", ", ready > 0 && `${ready} ready if you still want ${ready === 1 ? "it" : "them"}`)), /*#__PURE__*/React.createElement("p", {
     style: {
       textAlign: "center",
       marginTop: 30,
@@ -615,13 +618,61 @@ function Vault({
       color: C.textDim,
       marginTop: 8
     }
-  }, "That's a good day.")), locked.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+  }, "That's a good day.")), locked.filter(w => w.safety).length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 17,
+      color: C.teal,
+      fontWeight: 600
+    }
+  }, "🛟 Safety Box — appointments with the future"), locked.filter(w => w.safety).map(w => /*#__PURE__*/React.createElement("div", {
+    key: w.id,
+    style: {
+      background: C.card,
+      borderRadius: 14,
+      padding: 18,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 8px",
+      color: C.teal,
+      fontSize: 15,
+      fontWeight: 600
+    }
+  }, "Parked until ", fmtDayTime(w.unlockAt), " — to speak with ", w.safety.who), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 10px",
+      color: C.text,
+      fontSize: 17,
+      lineHeight: 1.6
+    }
+  }, w.text), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 14px",
+      color: C.textDim,
+      fontSize: 15,
+      lineHeight: 1.6
+    }
+  }, "Take these words with you to that conversation — they're the worry, already written down."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => release(w.id),
+    className: "lb-quiet",
+    style: {
+      background: "transparent",
+      color: C.textDim,
+      border: `2px solid ${C.line}`,
+      borderRadius: 12,
+      padding: "11px 16px",
+      fontSize: 15,
+      cursor: "pointer",
+      minHeight: 46
+    }
+  }, "Sorted early — let it go")))), locked.filter(w => !w.safety).length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontSize: 17,
       color: C.amber,
       fontWeight: 600
     }
-  }, "Locked — not for reading yet"), locked.map(w => /*#__PURE__*/React.createElement("div", {
+  }, "Locked — not for reading yet"), locked.filter(w => !w.safety).map(w => /*#__PURE__*/React.createElement("div", {
     key: w.id,
     style: {
       background: C.cardSoft,
@@ -663,7 +714,7 @@ function Vault({
       color: C.textDim,
       fontSize: 14
     }
-  }, fmtDayTime(w.createdAt)), /*#__PURE__*/React.createElement("p", {
+  }, w.safety ? `🛟 Time's up — have you spoken to ${w.safety.who}?` : fmtDayTime(w.createdAt)), /*#__PURE__*/React.createElement("p", {
     style: {
       margin: "0 0 14px",
       color: C.text,
@@ -713,50 +764,60 @@ function Vault({
   }, /*#__PURE__*/React.createElement(QuietButton, {
     label: showDone ? "Hide dealt-with" : `Dealt with (${data.outcomes.length})`,
     onClick: () => setShowDone(!showDone)
-  }), showDone && data.outcomes.map(o => /*#__PURE__*/React.createElement("div", {
-    key: o.id,
-    style: {
-      background: C.cardSoft,
-      border: `2px solid ${C.line}`,
-      borderRadius: 14,
-      padding: 18,
-      marginTop: 14
-    }
-  }, /*#__PURE__*/React.createElement("p", {
-    style: {
-      margin: "0 0 6px",
-      color: C.textDim,
-      fontSize: 14
-    }
-  }, fmtDayTime(o.at), " — appointment kept"), o.worryText && /*#__PURE__*/React.createElement("p", {
-    style: {
-      margin: "0 0 8px",
-      color: C.textDim,
-      fontSize: 15,
-      lineHeight: 1.6
-    }
-  }, "The worry: ", o.worryText), /*#__PURE__*/React.createElement("p", {
-    style: {
-      margin: "0 0 14px",
-      color: C.text,
-      fontSize: 16,
-      lineHeight: 1.6,
-      whiteSpace: "pre-wrap"
-    }
-  }, o.outcome ? o.outcome : "Faced it. Nothing more needed saying."), /*#__PURE__*/React.createElement("button", {
-    onClick: () => releaseOutcome(o.id),
-    className: "lb-quiet",
-    style: {
-      background: "transparent",
-      color: C.textDim,
-      border: `2px solid ${C.line}`,
-      borderRadius: 12,
-      padding: "10px 16px",
-      fontSize: 15,
-      cursor: "pointer",
-      minHeight: 44
-    }
-  }, "Let it go")))));
+  }), showDone && data.outcomes.map(o => {
+    const oSort = SORTS.find(s => s.key === o.sort);
+    return /*#__PURE__*/React.createElement("div", {
+      key: o.id,
+      style: {
+        background: C.cardSoft,
+        border: `2px solid ${C.line}`,
+        borderRadius: 14,
+        padding: 18,
+        marginTop: 14
+      }
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        margin: "0 0 6px",
+        color: C.textDim,
+        fontSize: 14
+      }
+    }, fmtDayTime(o.at), " — appointment kept", oSort ? ` · sorted as: ${oSort.label.toLowerCase()}` : ""), o.worryText && /*#__PURE__*/React.createElement("p", {
+      style: {
+        margin: "0 0 8px",
+        color: C.textDim,
+        fontSize: 15,
+        lineHeight: 1.6
+      }
+    }, "The worry: ", o.worryText), /*#__PURE__*/React.createElement("p", {
+      style: {
+        margin: "0 0 10px",
+        color: C.text,
+        fontSize: 16,
+        lineHeight: 1.6,
+        whiteSpace: "pre-wrap"
+      }
+    }, o.outcome ? o.outcome : "Faced it. Nothing more needed saying."), oSort && /*#__PURE__*/React.createElement("p", {
+      style: {
+        margin: "0 0 14px",
+        color: C.textDim,
+        fontSize: 15,
+        lineHeight: 1.6
+      }
+    }, oSort.icon, " The answer still stands: ", oSort.response), /*#__PURE__*/React.createElement("button", {
+      onClick: () => releaseOutcome(o.id),
+      className: "lb-quiet",
+      style: {
+        background: "transparent",
+        color: C.textDim,
+        border: `2px solid ${C.line}`,
+        borderRadius: 12,
+        padding: "10px 16px",
+        fontSize: 15,
+        cursor: "pointer",
+        minHeight: 44
+      }
+    }, "Let it go"));
+  })));
 }
 
 // ---------------------------------------------------------------
@@ -1197,15 +1258,54 @@ function Breaker({
 }
 
 // ---------------------------------------------------------------
-// The Appointment — keep the deal: face it, be honest, move on
+// The Appointment — face it, be honest, sort it, get your answer
 // ---------------------------------------------------------------
 
 const STARTERS = ["What's true is…", "The story my brain added is…", "One thing I can actually do about it is…", "If a friend brought me this worry, I'd tell them…"];
+const SORTS = [{
+  key: "ghost",
+  icon: "👻",
+  label: "An old ghost",
+  sub: "It's about the past — and in all this time, it's never once come true.",
+  response: "Run the numbers on it. How many mornings has this loop threatened you — and how many times has the feared thing actually happened? All those years of silence ARE the answer. If something was going to happen, it would have happened by now. This one is static, not signal: an alarm ringing over nothing. You can put it down.",
+  caveat: "If part of you thinks it might genuinely still be live, be honest and sort it as a real job or one for a professional instead."
+}, {
+  key: "job",
+  icon: "🔧",
+  label: "A real job",
+  sub: "Something genuinely needs doing — and it's something I can do.",
+  response: "Then this stops being a rumination the moment it becomes a task. Name the one next action — a call, a letter, a form, a conversation — and either do it now or give it a slot. A loop dies when the job leaves your head and lands on a list. Add the action as a late thought so it's written down, not carried."
+}, {
+  key: "professional",
+  icon: "🛟",
+  label: "One for a professional",
+  sub: "It can't be settled alone — it needs someone with the full picture.",
+  response: "Then no amount of looping at 3am can settle it — because the answer doesn't live in your head, it lives with someone else. That's not a defeat, it's a diagnosis: this worry is simply waiting for the right conversation. Park it in the Safety Box with a date and a name, and it stops being an alarm and becomes an appointment with the future."
+}, {
+  key: "fog",
+  icon: "🌫",
+  label: "Fog — I can't get the question out",
+  sub: "Something feels wrong but the words won't come.",
+  response: "That's the injury talking, not a fact. A worry that can't even state its case doesn't get to keep you up. Park it and rest the battery — the words often arrive on their own once the pressure's off. Or send it exactly as it is to your person; they may see what you can't from the inside."
+}];
 function buildShareText(worryText, outcome) {
   const lines = ["From LoopBreak — a worry I've dealt with."];
   if (worryText) lines.push("", "The worry: " + worryText);
   if (outcome) lines.push("", "Where I got to: " + outcome);
   return lines.join("\n");
+}
+function safetyWhenPresets() {
+  const day = 86400000;
+  return [{
+    label: "In 3 days",
+    at: Date.now() + 3 * day
+  }, {
+    label: "In a week",
+    at: Date.now() + 7 * day
+  }, {
+    label: "In two weeks",
+    at: Date.now() + 14 * day
+  }];
 }
 function Appointment({
   ctx,
@@ -1213,13 +1313,31 @@ function Appointment({
   setData,
   go
 }) {
-  const [mode, setMode] = useState("talk"); // talk -> done
+  // modes: talk -> sort -> response -> done
+  //        (professional: response -> safety-when -> safety-who -> done)
+  const [mode, setMode] = useState("talk");
+  const [sortKey, setSortKey] = useState(null);
   const [savedId, setSavedId] = useState(null);
   const [secs, setSecs] = useState(0);
   const [usedStarters, setUsedStarters] = useState([]);
   const [askName, setAskName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [shared, setShared] = useState(null);
+  const [safetyWhen, setSafetyWhen] = useState(null);
+  const [whoDraft, setWhoDraft] = useState("");
+  const [askWho, setAskWho] = useState(false);
+  const [parkedInfo, setParkedInfo] = useState(null);
+  useEffect(() => {
+    const id = setInterval(() => setSecs(s => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const minsIn = Math.floor(secs / 60);
+  const overTime = minsIn >= 10;
+  const sort = SORTS.find(s => s.key === sortKey);
+  const update = t => setData(d => ({
+    ...d,
+    draftOutcome: t
+  }));
   const addStarter = idx => {
     setUsedStarters(u => u.includes(idx) ? u : [...u, idx]);
     setData(d => {
@@ -1257,21 +1375,12 @@ function Appointment({
       // user cancelled the share sheet — that's fine, no failure state
     }
   };
-  useEffect(() => {
-    const id = setInterval(() => setSecs(s => s + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const minsIn = Math.floor(secs / 60);
-  const overTime = minsIn >= 10;
-  const update = t => setData(d => ({
-    ...d,
-    draftOutcome: t
-  }));
-  const finish = () => {
+
+  // Close out for ghost / job / fog — saves the outcome with its sort
+  const finish = key => {
     const text = (data.draftOutcome || "").trim();
     const now = Date.now();
     if (savedId) {
-      // late thought — update the same record
       setData(d => ({
         ...d,
         draftOutcome: "",
@@ -1291,6 +1400,7 @@ function Appointment({
           id,
           worryText: ctx.worry ? ctx.worry.text : null,
           outcome: text,
+          sort: key,
           at: now
         }, ...d.outcomes].slice(0, 60),
         worries: ctx.worry ? d.worries.filter(w => w.id !== ctx.worry.id) : d.worries,
@@ -1299,17 +1409,55 @@ function Appointment({
     }
     setMode("done");
   };
+
+  // Close out for professional — parks a Safety Box entry with a date and a name
+  const finishSafety = who => {
+    const text = (data.draftOutcome || "").trim();
+    const now = Date.now();
+    const id = now.toString(36);
+    const worryText = ctx.worry ? ctx.worry.text : text || "A worry parked for the right conversation";
+    setSavedId(id);
+    setParkedInfo({
+      who,
+      at: safetyWhen
+    });
+    setData(d => ({
+      ...d,
+      draftOutcome: "",
+      outcomes: [{
+        id,
+        worryText: ctx.worry ? ctx.worry.text : null,
+        outcome: text,
+        sort: "professional",
+        at: now
+      }, ...d.outcomes].slice(0, 60),
+      worries: [{
+        id: id + "s",
+        text: worryText,
+        createdAt: now,
+        unlockAt: safetyWhen,
+        safety: {
+          who
+        }
+      }, ...(ctx.worry ? d.worries.filter(w => w.id !== ctx.worry.id) : d.worries)],
+      appointment: ctx.from === "home" ? null : d.appointment
+    }));
+    setMode("done");
+  };
   const addThought = () => {
     const o = data.outcomes.find(x => x.id === savedId);
     setData(d => ({
       ...d,
       draftOutcome: o ? o.outcome : ""
     }));
+    setSortKey(null);
     setMode("talk");
   };
+
+  // ------------------------------------------------ done
   if (mode === "done") {
     return /*#__PURE__*/React.createElement(Screen, {
-      title: "Appointment kept",
+      title: parkedInfo ? "Parked in the Safety Box" : "Appointment kept",
       onBack: () => go("home")
     }, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -1323,21 +1471,35 @@ function Appointment({
         fontSize: 46,
         marginBottom: 10
       }
-    }, "🤝"), /*#__PURE__*/React.createElement("p", {
+    }, parkedInfo ? "🛟" : "🤝"), parkedInfo ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
       style: {
         fontSize: 20,
         color: C.text,
         margin: "0 0 8px",
         fontWeight: 600
       }
-    }, "Deal kept. Honest words down."), /*#__PURE__*/React.createElement("p", {
+    }, "An appointment with the future."), /*#__PURE__*/React.createElement("p", {
       style: {
         fontSize: 17,
         color: C.textDim,
         margin: 0,
         lineHeight: 1.6
       }
-    }, "You gave it its slot and looked at it straight. Now you must move on — that's the other half of the deal. It's saved under \"Dealt with\" in the Worry Box if you ever want it.")), /*#__PURE__*/React.createElement("div", {
+    }, "Parked until ", fmtDayTime(parkedInfo.at), " — because by then you'll have spoken to ", parkedInfo.who, ". It's safe in the box, words and all, ready to take to that conversation. Your half of the deal is to leave it there.")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 20,
+        color: C.text,
+        margin: "0 0 8px",
+        fontWeight: 600
+      }
+    }, "Deal kept. You have your answer."), /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 17,
+        color: C.textDim,
+        margin: 0,
+        lineHeight: 1.6
+      }
+    }, "You looked at it straight, sorted it, and answered it. It's saved under \"Dealt with\" in the Worry Box — answer and all — if you ever want to read it back."))), /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
         flexDirection: "column",
@@ -1424,6 +1586,9 @@ function Appointment({
         minHeight: 46
       }
     }, "Not now"))), /*#__PURE__*/React.createElement(QuietButton, {
+      label: "Open the Worry Box",
+      onClick: () => go("vault")
+    }), /*#__PURE__*/React.createElement(QuietButton, {
       label: "A late thought? Add it",
       onClick: addThought
     }), /*#__PURE__*/React.createElement(QuietButton, {
@@ -1462,6 +1627,202 @@ function Appointment({
       }
     }, "Change who this goes to")));
   }
+
+  // ------------------------------------------------ safety box: when
+  if (mode === "safety-when") {
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: "The Safety Box",
+      onBack: () => setMode("response"),
+      backLabel: "← Back"
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: C.textDim,
+        fontSize: 16,
+        lineHeight: 1.6,
+        marginTop: 0
+      }
+    }, "Parked until when? Give yourself enough time to have the conversation — the box will hold it, words and all."), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 12
+      }
+    }, safetyWhenPresets().map(p => /*#__PURE__*/React.createElement(BigButton, {
+      key: p.label,
+      icon: "🛟",
+      label: p.label,
+      color: C.card,
+      textColor: C.text,
+      onClick: () => {
+        setSafetyWhen(p.at);
+        setMode("safety-who");
+      }
+    }))));
+  }
+
+  // ------------------------------------------------ safety box: who
+  if (mode === "safety-who") {
+    const whoOptions = ["My GP", "Headway", data.nominee || "My person"];
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: "The Safety Box",
+      onBack: () => setMode("safety-when"),
+      backLabel: "← Back"
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: C.textDim,
+        fontSize: 16,
+        lineHeight: 1.6,
+        marginTop: 0
+      }
+    }, "And who will you speak to by then? Naming them is what turns this from a worry into an appointment."), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 12
+      }
+    }, !askWho && whoOptions.map(w => /*#__PURE__*/React.createElement(BigButton, {
+      key: w,
+      icon: "🗣",
+      label: w,
+      color: C.card,
+      textColor: C.text,
+      onClick: () => finishSafety(w)
+    })), !askWho && /*#__PURE__*/React.createElement(QuietButton, {
+      label: "Someone else…",
+      onClick: () => setAskWho(true)
+    }), askWho && /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: C.cardSoft,
+        border: `2px solid ${C.line}`,
+        borderRadius: 14,
+        padding: 18
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: whoDraft,
+      onChange: e => setWhoDraft(e.target.value),
+      placeholder: "e.g. my neuropsychologist",
+      style: {
+        width: "100%",
+        boxSizing: "border-box",
+        background: C.bg,
+        border: `2px solid ${C.line}`,
+        borderRadius: 12,
+        color: C.text,
+        fontSize: 17,
+        padding: "13px 14px",
+        fontFamily: "inherit",
+        marginBottom: 12
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: () => whoDraft.trim() && finishSafety(whoDraft.trim()),
+      className: "lb-quiet",
+      style: {
+        background: C.teal,
+        color: "#10201E",
+        border: "none",
+        borderRadius: 12,
+        padding: "13px 18px",
+        fontSize: 16,
+        fontWeight: 700,
+        cursor: "pointer",
+        minHeight: 50,
+        width: "100%"
+      }
+    }, "Park it with them"))));
+  }
+
+  // ------------------------------------------------ response
+  if (mode === "response" && sort) {
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: sort.label,
+      onBack: () => setMode("sort"),
+      backLabel: "← Sort it differently"
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: C.card,
+        borderRadius: 18,
+        padding: 24
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 40,
+        marginBottom: 10
+      },
+      "aria-hidden": "true"
+    }, sort.icon), /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: C.text,
+        fontSize: 19,
+        lineHeight: 1.65,
+        margin: 0,
+        fontWeight: 500
+      }
+    }, sort.response), sort.caveat && /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: C.textDim,
+        fontSize: 15,
+        lineHeight: 1.6,
+        marginTop: 14,
+        marginBottom: 0
+      }
+    }, sort.caveat)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        marginTop: 20
+      }
+    }, sort.key === "professional" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(BigButton, {
+      icon: "🛟",
+      label: "Park it in the Safety Box",
+      sub: "A date, a name, and it's off your watch.",
+      onClick: () => setMode("safety-when")
+    }), /*#__PURE__*/React.createElement(QuietButton, {
+      label: "Move on without parking it",
+      onClick: () => finish(sort.key)
+    })) : /*#__PURE__*/React.createElement(BigButton, {
+      icon: "🤝",
+      label: "That's my answer — move on",
+      sub: "Keeping your half of the deal.",
+      onClick: () => finish(sort.key)
+    })));
+  }
+
+  // ------------------------------------------------ sort
+  if (mode === "sort") {
+    return /*#__PURE__*/React.createElement(Screen, {
+      title: "What kind of worry is it?",
+      onBack: () => setMode("talk"),
+      backLabel: "← Back to the words"
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: C.textDim,
+        fontSize: 16,
+        lineHeight: 1.6,
+        marginTop: 0
+      }
+    }, "Look at what you've written. The answer depends on what kind of worry this is — and you're the one who knows. Sort it:"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 12
+      }
+    }, SORTS.map(s => /*#__PURE__*/React.createElement(BigButton, {
+      key: s.key,
+      icon: s.icon,
+      label: s.label,
+      sub: s.sub,
+      color: C.card,
+      textColor: C.text,
+      onClick: () => {
+        setSortKey(s.key);
+        setMode("response");
+      }
+    }))));
+  }
+
+  // ------------------------------------------------ talk
   return /*#__PURE__*/React.createElement(Screen, {
     title: "The appointment",
     onBack: () => go("home")
@@ -1553,10 +1914,25 @@ function Appointment({
     }
   }, /*#__PURE__*/React.createElement(BigButton, {
     icon: "🤝",
-    label: "That's dealt with — move on",
-    sub: "Keeping your half of the deal.",
-    onClick: finish
-  })));
+    label: "Honest words down — now sort it",
+    sub: "The answer depends on what kind of worry it is.",
+    onClick: () => setMode("sort")
+  })), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: C.textDim,
+      fontSize: 14,
+      lineHeight: 1.7,
+      margin: "18px 0 0",
+      textAlign: "center"
+    }
+  }, "If this worry is about hurting yourself or not wanting to be here, it's not one for an app or a box — Samaritans are there to listen, any hour, free:", " ", /*#__PURE__*/React.createElement("a", {
+    href: "tel:116123",
+    style: {
+      color: C.teal,
+      textDecoration: "underline",
+      textUnderlineOffset: 3
+    }
+  }, "116 123"), "."));
 }
 
 // ---------------------------------------------------------------
