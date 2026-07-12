@@ -48,7 +48,11 @@ window.storage = window.storage || {
 };
 
 // ------------------------------------------------------------------
-// LoopBreak v5 — a calm companion for post-ABI rumination
+// LoopBreak v6 — a calm companion for post-ABI rumination
+// v7: fifth sort — "Something that really happened" — for loss-shaped
+//     rumination (grief, injustice, if-onlys) where the reality test
+//     does not apply. Previously
+// v6: version/copyright footer on the home screen
 // v5: sorting step with four typed answers, Safety Box deferral,
 //     Samaritans signpost, worry-box navigation fixes. Previously
 // v4: appointment sentence-starters, send-to-nominee via share sheet,
@@ -85,6 +89,8 @@ const C = {
   line: "#2E3F4C"
 };
 const GUIDE_URL = "loopbreak-guide.html"; // lives beside the app on loopbreak.help
+const VERSION = "7.0";
+const VERSION_DATE = "12 July 2026";
 const STORAGE_KEY = "loopbreak-v1"; // unchanged so existing data carries over
 
 const emptyData = {
@@ -456,7 +462,26 @@ function Home({
       textDecoration: "underline",
       textUnderlineOffset: 3
     }
-  }, "New here? Read Brian's guide to the loop")));
+  }, "New here? Read Brian's guide to the loop")), /*#__PURE__*/React.createElement("p", {
+    style: {
+      textAlign: "center",
+      marginTop: 16,
+      marginBottom: 0,
+      color: C.textDim,
+      fontSize: 13,
+      lineHeight: 1.7,
+      opacity: 0.85
+    }
+  }, "LoopBreak · v", VERSION, " · ", VERSION_DATE, /*#__PURE__*/React.createElement("br", null), "© 2026", " ", /*#__PURE__*/React.createElement("a", {
+    href: "https://mawsky.com",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      color: C.textDim,
+      textDecoration: "underline",
+      textUnderlineOffset: 3
+    }
+  }, "MawSky")));
 }
 
 // ---------------------------------------------------------------
@@ -1268,7 +1293,14 @@ const SORTS = [{
   label: "An old ghost",
   sub: "It's about the past — and in all this time, it's never once come true.",
   response: "Run the numbers on it. How many mornings has this loop threatened you — and how many times has the feared thing actually happened? All those years of silence ARE the answer. If something was going to happen, it would have happened by now. This one is static, not signal: an alarm ringing over nothing. You can put it down.",
-  caveat: "If part of you thinks it might genuinely still be live, be honest and sort it as a real job or one for a professional instead."
+  caveat: "If part of you thinks it might genuinely still be live — or if the thing really did happen — be honest and sort it under one of the doors below instead."
+}, {
+  key: "happened",
+  icon: "🕯",
+  label: "Something that really happened",
+  sub: "A loss, a wrong, an 'if only' — a past that can't be changed.",
+  response: "Then the reality test doesn't apply — this one is real, and no amount of looping can make it un-happen. That's the tell: this isn't a faulty alarm, it's grief wearing rumination's clothes, trying to solve something that was never a problem to solve. It's a loss to carry — and carrying is done with people, not alone at 3am. Put honest words on what was lost, then take them to someone: your person, Headway, a professional. Every hour the loop takes is an hour taken from living around it.",
+  caveat: "If part of what happened still CAN be acted on — an apology, a claim, a conversation — that part is a real job. Give that bit its own appointment and sort it separately."
 }, {
   key: "job",
   icon: "🔧",
